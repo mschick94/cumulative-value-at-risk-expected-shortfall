@@ -1,12 +1,29 @@
-function EstOut = read_copula_est_results(MarginalModels, ...
-    CopulaModels, assets)
-%READ_COPULAL_EST_RESULTS Read in estimation results of univariate 
-% variance models and copula
+function EstOut = read_copula_est_results(MarginalModels, CopulaModels, assets)
+%READ_COPULA_EST_RESULTS Read in estimation results for all combinations
+% of marginal and copula model specifications.
 %
-%   EstOut = READ_COPULA_EST_RESULTS(MarginalModels,CopulaModels,assets) 
-%   reads in the estimation resutls of the marginal distributions and 
-%   copula dependence structure using variance models, assets, copula, and 
-%   correlation matrix model as specified. UPDATE/IMPROVE HEADER!!!
+%   EstOut = READ_COPULA_EST_RESULTS(MarginalModels, CopulaModels, assets)
+%   reads in the copula estimation results for all combinations of marginal
+%   distributions and copula models for the specified assets. Files are
+%   expected in Output/Estimation/Copula/ following the naming convention
+%   EstOut_<MarginalModel>_<CopulaModel>_<assets>.mat
+%
+%   INPUTS:
+%       MarginalModels : Cell array of marginal model names
+%                        e.g. {'GARCH_norm', 'GARCH_t', 'GJR_GARCH_norm'}
+%       CopulaModels   : Cell array of copula model names
+%                        e.g. {'CCC_norm', 'CCC_t', 'DCC_norm', 'DCC_t'}
+%       assets         : Cell array of asset names
+%                        e.g. {'AXP', 'BA'}
+%
+%   OUTPUT:
+%       EstOut : Struct with one field per successfully loaded model
+%                combination, e.g. EstOut.GARCH_norm_CCC_norm.
+%                Missing files are skipped with a warning.
+%
+%   NOTES:
+%       - Only combinations for which a file exists are loaded
+%       - Asset names must match exactly those used during estimation
 
     assets_str = strjoin(assets, '_');
     EstOut     = struct();
@@ -23,5 +40,4 @@ function EstOut = read_copula_est_results(MarginalModels, ...
             end
         end
     end
-
 end

@@ -287,7 +287,7 @@ classdef CopulaModel
 %       Probability intergral transforms
 %==========================================================================
 
-        function u = pits(z,varargin)
+        function u = pits(z, varargin)
         %PITS Compute probability integral transforms (PITs) of 
         % standardized residuals under a specified innovation distribution.
         %

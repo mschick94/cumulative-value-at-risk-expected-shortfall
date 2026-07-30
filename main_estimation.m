@@ -179,9 +179,7 @@ VaRandES = compute_var_es(SimOut, weightMat, alpha);
 
 
 %% Forecast evaluation
-
-score_fz(VaRandES, R, 'HEval', 10, 'DateStart', 20060201, ...
-                                   'DateEnd', 20221230)
-
+MCSTable = score_fz(VaRandES, R, 'HEval', 10, 'DateStart', 20060201, ...
+                                              'DateEnd',   20221230);
 
 

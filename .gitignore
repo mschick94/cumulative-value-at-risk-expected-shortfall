@@ -1,0 +1,13 @@
+# Data & Output (not part of this repository)
+Data/
+Output/
+
+# MATLAB-specific
+*.asv
+*.m~
+slprj/
+*.autosave
+
+# OS-specific
+.DS_Store
+Thumbs.db

@@ -232,12 +232,11 @@ FZEvalTable.LaTeX = print_latex_losses(meanLosses, includedMCS, ...
     ModelNames, HEval, Decimals, PrintTable);
 
 % Numeric summary table
-h_col_names      = arrayfun(@(h) sprintf('h%d', h), HEval, ...
-                             'UniformOutput', false);
-NumericTab       = array2table(meanLosses, ...
-                   'RowNames',        ModelNames, ...
-                   'VariableNames',   h_col_names);
-FZEvalTable.Losses  = NumericTab;
+h_col_names        = arrayfun(@(h) sprintf('h%d', h), HEval, ...
+                                           'UniformOutput', false);
+NumericTab         = array2table(meanLosses, 'RowNames', ModelNames, ...
+                                 'VariableNames', h_col_names);
+FZEvalTable.Losses = NumericTab;
 
 % Pack additional information
 FZEvalTable.alpha      = alpha;
@@ -330,10 +329,10 @@ for i = 1:n_cols
 end
 
 % Add column names
-col_names        = cell(1, n_cols);
-col_names{1}     = 'Model';
-col_names{end}   = 'newline';
-col_names{2}     = 'amp1';
+col_names      = cell(1, n_cols);
+col_names{1}   = 'Model';
+col_names{end} = 'newline';
+col_names{2}   = 'amp1';
 for i = 1:Hlength
     col_names{2*i+1} = sprintf('h%d', HEval(i));
     if i < Hlength

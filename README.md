@@ -18,13 +18,17 @@ The code expects the following local folder structure (not included in this repo
 
 
 
+```
+
 project/
 
-├── Code/ (this repository)
+├── Code/     (this repository)
 
-├── Data/ (not public — restricted-access data)
+├── Data/     (not public — restricted-access data)
 
-└── Output/ (generated results, not public)
+└── Output/   (generated results, not public)
+
+```
 
 
 

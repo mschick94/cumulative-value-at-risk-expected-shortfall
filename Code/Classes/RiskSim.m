@@ -163,7 +163,7 @@ classdef RiskSim
             elseif strcmp(model, 'gjr')
                 % Initialize h_{t+1}
                 eps = r_last-mu;
-                I = eps < 0;
+                I   = eps < 0;
                 h_1 = omega + (alpha + I*gamma)*eps^2 + beta*h_last;
                 h_sim(1, :) = h_1;
                 
@@ -172,7 +172,7 @@ classdef RiskSim
                     r_sim(j,:) = mu + sqrt(h_sim(j,:)) .* z(j,:);
                     if j < H
                         eps = r_sim(j,:) - mu;
-                        I = eps < 0;
+                        I   = eps < 0;
                         h_sim(j+1,:) = omega + (alpha + I*gamma).*eps.^2 ...
                                        + beta*h_sim(j,:);
                     end
@@ -183,8 +183,8 @@ classdef RiskSim
             R_cum = cumsum(r_sim, 1);   % row h = sum of steps 1..h
             
             % VaR and ES at each horizon h at 'conf' level
-            VaR   = NaN(H, 1);
-            ES    = NaN(H, 1);
+            VaR = NaN(H, 1);
+            ES  = NaN(H, 1);
             
             for h = 1:H
                 sorted = sort(R_cum(h, :));        % sort ascending
@@ -480,7 +480,7 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
                 dist = 'norm';
             end
             if nargin < 5
-                nu   = NaN;
+                nu = NaN;
             end
             if nargin < 6
                 lambda = NaN;   

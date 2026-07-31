@@ -60,8 +60,8 @@ classdef CopulaModel
             addParameter(p, 'dist', 'norm');
             parse(p, varargin{:});
         
-            dist   = p.Results.dist;
-            nu     = pars;
+            dist = p.Results.dist;
+            nu   = pars;
  
             % Log-likelihood contributions
             loglike_vec = NaN(T,1);
@@ -81,7 +81,7 @@ classdef CopulaModel
                     % likelihood contributions
                     log_det_R = log(det(R)); 
                     for t = 1:T
-                        u_R_inv_u = u_std(t,:) * (R \ u_std(t,:)');
+                        u_R_inv_u        = u_std(t,:) * (R \ u_std(t,:)');
                         loglike_vec(t,1) = - 0.5 * u_R_inv_u ...
                                            - 0.5*log_det_R;
                     end
@@ -106,7 +106,7 @@ classdef CopulaModel
                     % likelihood contributions
                     log_det_R = log(det(R)); 
                     for t = 1:T
-                        u_R_inv_u = u_std(t,:) * (R \ u_std(t,:)');
+                        u_R_inv_u        = u_std(t,:) * (R \ u_std(t,:)');
                         loglike_vec(t,1) = - 0.5 * (nu+K) ...
                                            * log1p(u_R_inv_u/(nu-2)) ...
                                            - 0.5* log_det_R;
@@ -183,7 +183,7 @@ classdef CopulaModel
             addParameter(p, 'dist', 'norm');
             parse(p, varargin{:});
         
-            dist   = p.Results.dist;
+            dist = p.Results.dist;
  
             % Log-likelihood contributions
             loglike_vec = NaN(T,1);
@@ -380,8 +380,8 @@ classdef CopulaModel
                         x_star = -a / b;
 
                         % Apply piecewise skewing transformation
-                        left     = z(:,k) < x_star;
-                        right    = z(:,k) >= x_star;
+                        left  = z(:,k) < x_star;
+                        right = z(:,k) >= x_star;
 
                         % Left side
                         arg_left  = (b*z(left,k) + a)/(1 - lambdak);
@@ -558,7 +558,7 @@ classdef CopulaModel
 
                 % Laplace    
                 case 'laplace'
-                    [H,M,K] = size(u);
+                    [H,M,K]   = size(u);
                     left      = u < 0.5;
                     z         = NaN(H,M,K);
                     z(left)   = log(2*u(left))   / sqrt(2);
@@ -578,9 +578,9 @@ classdef CopulaModel
                     
                     z = NaN(H,M,K);
                     for k = 1:K
-                        z_sorted    = sort(std_res(:,k));
-                        idx         = max(1, round(u(:,:,k) * T));
-                        z(:,:,k)    = z_sorted(idx);
+                        z_sorted = sort(std_res(:,k));
+                        idx      = max(1, round(u(:,:,k) * T));
+                        z(:,:,k) = z_sorted(idx);
                     end
 
                 otherwise

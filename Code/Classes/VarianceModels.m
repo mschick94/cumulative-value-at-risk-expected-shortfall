@@ -61,8 +61,8 @@ classdef VarianceModels
             n     = size(r,1);
 
             % Unconditional variance initialization
-            H_bar = r'*r/n;
-            H_t   = NaN(n,1);
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
             H_t(1) = H_bar;
             
             % Recursion for conditional variances
@@ -130,8 +130,8 @@ classdef VarianceModels
             n     = size(r,1);
 
             % Unconditional variance initialization
-            H_bar = r'*r/n;
-            H_t   = NaN(n,1);
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
             H_t(1) = H_bar;
             
             % Recursion for conditional variances
@@ -200,8 +200,8 @@ classdef VarianceModels
             n     = size(r,1);
             
             % Unconditional variance initialization
-            H_bar = r'*r/n;
-            H_t   = NaN(n,1);
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
             H_t(1) = H_bar;
             
             % Recursion for conditional variances
@@ -271,8 +271,8 @@ classdef VarianceModels
             n     = size(r,1);
             
             % Unconditional variance initialization
-            H_bar = r'*r/n;
-            H_t   = NaN(n,1);
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
             H_t(1) = H_bar;
             
             % Recursion for conditional variances
@@ -344,8 +344,8 @@ classdef VarianceModels
             n      = size(r,1);
             
             % Unconditional variance initialization
-            H_bar = r'*r/n;
-            H_t   = NaN(n,1);
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
             H_t(1) = H_bar;
             
             % Recursion for conditional variances
@@ -443,8 +443,8 @@ classdef VarianceModels
             n      = size(r,1);
             
             % Unconditional variance initialization
-            H_bar = r'*r/n;
-            H_t   = NaN(n,1);
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
             H_t(1) = H_bar;
             
             % Recursion for conditional variances
@@ -538,8 +538,8 @@ classdef VarianceModels
             n     = size(r,1);
 
             % Unconditional variance initialization
-            H_bar = r'*r/n;
-            H_t   = NaN(n,1);
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
             H_t(1) = H_bar;
             
             % Recursion for conditional variances
@@ -608,8 +608,8 @@ classdef VarianceModels
             n     = size(r,1);
 
             % Unconditional variance initialization
-            H_bar = r'*r/n;
-            H_t   = NaN(n,1);
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
             H_t(1) = H_bar;
             
             % Recursion for conditional variances

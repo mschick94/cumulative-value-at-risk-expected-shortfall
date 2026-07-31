@@ -64,8 +64,8 @@ for j = 1:J
     % Read out simulation results of the j-th model and compute PF returns
     SimRetModel            = SimRet.(ModelNames{j});
     HStepCumReturnSumModel = SimRetModel.HStepCumReturnSim;
-    HStepSimPFRet          = squeeze (sum(HStepCumReturnSumModel .* ...
-                                      reshape(PFweights, 1, 1, K, 1), 3) );
+    HStepSimPFRet          = squeeze(sum(HStepCumReturnSumModel .* ...
+                                     reshape(PFweights, 1, 1, K, 1), 3) );
  
     % h-step ahead VaR and ES for h = 1, ..., H
     for h = 1:H

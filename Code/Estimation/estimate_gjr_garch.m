@@ -168,15 +168,15 @@ if num_workers > 1
     parfor i = 1:n_reest
         ll_fun_local = ll_fun;
         for k = 1:K
-            r                        = R_windows{i,k};
-            GARCH_pars               = fmincon(@(pars) ll_fun_local(pars, r), ...
-                                        start, A, b, [], [], lb, ub, [], options);
-            [NegLLk, H_t, mu_est]    = ll_fun_local(GARCH_pars, r);
-            GARCHpars_reest(i,:,k)   = GARCH_pars(1:4);
-            mu_reest(i,k)            = mu_est;
-            H_last_reest(i,k)        = H_t(end);
-            NegLL_reest(i,k)         = NegLLk;
-            std_res_reest(:,k,i)     = (r - mu_est) ./ sqrt(H_t);
+            r                      = R_windows{i,k};
+            GARCH_pars             = fmincon(@(pars) ll_fun_local(pars, r), ...
+                                      start, A, b, [], [], lb, ub, [], options);
+            [NegLLk, H_t, mu_est]  = ll_fun_local(GARCH_pars, r);
+            GARCHpars_reest(i,:,k) = GARCH_pars(1:4);
+            mu_reest(i,k)          = mu_est;
+            H_last_reest(i,k)      = H_t(end);
+            NegLL_reest(i,k)       = NegLLk;
+            std_res_reest(:,k,i)   = (r - mu_est) ./ sqrt(H_t);
             if get_nu
                 nu_reest(i,k) = GARCH_pars(idx_nu);
             end

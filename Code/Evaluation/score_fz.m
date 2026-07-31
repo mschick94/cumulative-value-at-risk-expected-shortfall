@@ -156,7 +156,7 @@ for i = 1:Hlength
     VaRNegidx      = ActualCumPFRet <= hStepVaRmat;
     IndVaRMinusRet = VaRNegidx .* (hStepVaRmat - ActualCumPFRet);
 
-    FirstSum = - 1/alpha * IndVaRMinusRet ./ hStepESmat;
+    FirstSum  = - 1/alpha * IndVaRMinusRet ./ hStepESmat;
     SecondSum = hStepVaRmat ./ hStepESmat + log(-hStepESmat) - 1;
 
     % Overall loss

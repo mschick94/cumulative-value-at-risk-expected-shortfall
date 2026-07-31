@@ -258,9 +258,9 @@ end
 
 % Unpack results
 for i = 1:n_reest
-    Rmat_reest(:,:,i)   = results{i}.Rmat;
-    cop_nu_reest(i)     = results{i}.cop_nu;
-    cop_NegLL_reest(i)  = results{i}.NegLL;
+    Rmat_reest(:,:,i)  = results{i}.Rmat;
+    cop_nu_reest(i)    = results{i}.cop_nu;
+    cop_NegLL_reest(i) = results{i}.NegLL;
     if ~isscalar(results{i}.Qmat)
         Qmat_reest(:,:,i) = results{i}.Qmat;
     end
@@ -371,7 +371,7 @@ EstOut.mu        = MarginalEst.mu;
 EstOut.H_last    = MarginalEst.H_last;
 EstOut.margDist  = MarginalEst.dist;
 if ismember(MarginalEst.dist, {'t', 'skewt'})
-    EstOut.nu     = MarginalEst.nu;
+    EstOut.nu = MarginalEst.nu;
 end
 if strcmp(MarginalEst.dist, 'skewt')
     EstOut.lambda = MarginalEst.lambda;

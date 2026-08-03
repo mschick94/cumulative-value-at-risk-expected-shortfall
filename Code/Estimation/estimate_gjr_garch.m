@@ -17,6 +17,9 @@ function EstOut = estimate_gjr_garch(R, varargin)
 %       'NumWorkers' : Scalar, parallel workers (default: 1)
 %       'assets'     : Cell array of asset names (default: [])
 %       'dates'      : Vector of dates (default: [])
+%       'portfolio'  : String to identify portfolio construction
+%       'SaveDisk'   : Logical, store results to disk
+%                      (default: true)
 %
 %   OUTPUT:
 %       EstOut : Struct containing all estimation output
@@ -42,14 +45,17 @@ addParameter(p, 'WindLength', 1000);
 addParameter(p, 'NumWorkers', 1);
 addParameter(p, 'assets',     []);
 addParameter(p, 'dates',      []);
+addParameter(p, 'portfolio',  []);
+addParameter(p, 'SaveDisk',   true);
 parse(p, varargin{:});
 
 dist        = p.Results.dist;
 reest_freq  = p.Results.ReestFreq;
 W           = p.Results.WindLength;
 num_workers = p.Results.NumWorkers;
-assets      = p.Results.assets;
-dates       = p.Results.dates;
+portfolio   = p.Results.portfolio;
+SaveDisk    = p.Results.SaveDisk;
+
 
 % Dimensions
 [T, K]  = size(R);
@@ -268,6 +274,10 @@ end
 
 
 % Save EstOut to disk
+if ~isempty(portfolio)
+    EstOut.model = [EstOut.model '_' portfolio];
+end
+
 if isempty(assets)
     filename = sprintf('Output/Estimation/Marginals/EstOut_%s.mat', ...
                        EstOut.model);
@@ -275,7 +285,10 @@ else
     filename = sprintf('Output/Estimation/Marginals/EstOut_%s_%s.mat', ...
                        EstOut.model, strjoin(assets, '_'));
 end
-save(filename, 'EstOut');
+
+if SaveDisk
+    save(filename, 'EstOut');
+end
 
 
 end

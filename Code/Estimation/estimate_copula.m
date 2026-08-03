@@ -27,6 +27,8 @@ function EstOut = estimate_copula(MarginalEst, varargin)
 %                          parametric (default: false). Always uses
 %                          Gaussian copula. Stores std_res in EstOut.
 %       'NumWorkers'     : Scalar, number of parallel workers (default: 1)
+%       'SaveDisk'       : Logical, store results to disk
+%                          (default: true)
 %
 %   OUTPUT:
 %       EstOut : Struct containing all estimation output, saved to disk.
@@ -75,12 +77,14 @@ addParameter(p, 'copula_dist',    'norm');
 addParameter(p, 'corr_model',     'CCC');
 addParameter(p, 'empirical_pits', false);
 addParameter(p, 'NumWorkers',     1);
+addParameter(p, 'SaveDisk',       true);
 parse(p, varargin{:});
 
 copula_dist    = p.Results.copula_dist;
 CorrModel      = p.Results.corr_model;
 empirical_pits = p.Results.empirical_pits;
 num_workers    = p.Results.NumWorkers;
+SaveDisk       = p.Results.SaveDisk;
 
 % Read out setting
 margModel = MarginalEst.model;
@@ -389,7 +393,10 @@ else
     filename = sprintf('Output/Estimation/Copula/EstOut_%s_%s.mat', ...
                        model_name, strjoin(assets, '_'));
 end
-save(filename, 'EstOut');
+
+if SaveDisk
+    save(filename, 'EstOut');
+end
 
 
 end

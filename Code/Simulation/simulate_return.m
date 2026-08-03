@@ -16,6 +16,8 @@ function SimOut = simulate_return(CopulaEst, Returns, varargin)
 %       'H'          : Scalar, simulation horizon in days (default: 10)
 %       'M'          : Scalar, number of simulation paths (default: 1000)
 %       'NumWorkers' : Scalar, number of parallel workers (default: 1)
+%       'SaveDisk'   : Logical, store results to disk
+%                      (default: true)
 %
 %   OUTPUT:
 %       SimOut : Struct containing simulation output, saved to disk.
@@ -56,11 +58,13 @@ p = inputParser;
 addParameter(p, 'H',          10);
 addParameter(p, 'M',          1000);
 addParameter(p, 'NumWorkers', 1);
+addParameter(p, 'SaveDisk',   true);
 parse(p, varargin{:});
 
 H           = p.Results.H;
 M           = p.Results.M;
 num_workers = p.Results.NumWorkers;
+SaveDisk    = p.Results.SaveDisk;
 
 % Read out Copula setting
 assets     = CopulaEst.assets;
@@ -184,7 +188,12 @@ if empiricalPITs
     sim_name = [sim_name, '_empirical'];
 end
 assets_str = strjoin(assets, '_');
-save(sprintf('Output/Simulation/SimOut_%s_%s.mat', sim_name, assets_str), 'SimOut');
+
+if SaveDisk
+    save(sprintf('Output/Simulation/SimOut_%s_%s.mat', sim_name, ...
+         assets_str), 'SimOut');
+end
+
 
 end
 
@@ -256,7 +265,8 @@ function Rsim_t = simulate_one_t(t, H, M, K, ...
     end
     
     % Simulate cumulative h-step ahead returns for each asset
-    garch_param = squeeze(GARCHpars(t,:,:))';
+    n_pars      = size(GARCHpars,2);
+    garch_param = reshape(GARCHpars(t,:,:), n_pars, K)'; 
     Rsim_t      = NaN(H, M, K);
     for k = 1:K
         pars          = garch_param(k,:);

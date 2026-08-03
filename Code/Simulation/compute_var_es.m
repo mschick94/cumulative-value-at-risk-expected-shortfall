@@ -27,6 +27,7 @@ function VaRESOut = compute_var_es(SimRet, PFweights, alpha)
 %                  .dates      - dates vector
 %                  .PFweights  - (1 x K) portfolio weights used
 %                  .WindLength - estimation window length
+%                  .ReestFreq  - re-estimation frequency
 %
 %   NOTES:
 %       - VaR and ES are reported as negative numbers (left tail)
@@ -88,5 +89,6 @@ VaRESOut.assets     = SimRetModel.assets;
 VaRESOut.dates      = SimRetModel.dates;
 VaRESOut.PFweights  = PFweights;
 VaRESOut.WindLength = SimRetModel.WindLength;
+VaRESOut.ReestFreq  = SimRetModel.ReestFreq;
 
 end

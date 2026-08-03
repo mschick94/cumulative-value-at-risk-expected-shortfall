@@ -28,6 +28,10 @@ weightMat = ones(max(size(assets)), 1) / max(size(assets));
 reest_freq = 500;   % re-estimate every 21 observations
 WindLength = 1000;  % Window length
 
+% Simulation set-up
+Hsim = 10;
+Msim = 200;
+
 % Number of workers for parallel computing 
 NumberWorkers = 1;
 
@@ -65,7 +69,7 @@ estimate_garch(R, 'dist', 't', 'WindLength', WindLength, ...
 
 
 %% Rolling-window estimation of the copula
-clearvars -except R assets weightMat NumberWorkers
+clearvars -except R assets weightMat NumberWorkers dates Hsim Msim
 
 % Specify models depending on marginal specifications estimated previously
 MarginalModels = {'GARCH_norm', ...
@@ -120,7 +124,8 @@ estimate_copula(EstOut.GARCH_t, 'copula_dist', 'norm', ...
 
 
 %% Simulation of H-step ahead forecast distribution 
-clearvars -except R assets MarginalModels weightMat NumberWorkers
+clearvars -except R assets MarginalModels weightMat NumberWorkers dates ...
+                  Hsim Msim
 
 % Specify models depending on copula specifications estimated previously
 CopulaModels = {'CCC_norm', ...
@@ -129,10 +134,6 @@ CopulaModels = {'CCC_norm', ...
                 %'DCC_norm', ...
                 %'DCC_t'
                 }; % Add Copula models here 
-
-% Simulation set-up
-Hsim = 10;
-Msim = 200;
 
 
 % Load all combinations of univariate variance models, assets, and copulas
@@ -163,7 +164,8 @@ end
 
 
 %% Compute Portfolio VaR and ES
-clearvars -except R assets MarginalModels weightMat NumberWorkers
+clearvars -except R assets MarginalModels weightMat NumberWorkers dates ...
+                  Hsim Msim
 
 % Specify models depending on copula specifications estimated previously
 CopulaModels = {'CCC_norm'}; % Add models here 
@@ -178,7 +180,45 @@ VaRandES = compute_var_es(SimOut, weightMat, alpha);
 
 
 
+%% Equally weighted portfolio
+R_pf = R * weightMat;
+
+% GARCH-Normal
+EqualWeightedPF_marginal = estimate_garch(R_pf, 'dist', 'norm', ...
+    'WindLength', VaRandES.WindLength, 'ReestFreq', VaRandES.ReestFreq, ...
+    'assets', assets, 'NumWorkers', NumberWorkers, 'dates', dates, ...
+    'Portfolio', 'EqualWeighted', 'SaveDisk', false);
+
+% K = 1 copula needed for simulation of returns
+GARCH_norm_EqualWeightedPF = estimate_copula(EqualWeightedPF_marginal, ...
+                                             'SaveDisk', false);
+
+% Simulate return distribution
+EqualWeightedPF = simulate_return(GARCH_norm_EqualWeightedPF, R_pf, ...
+    'H', Hsim, 'M', Msim, 'NumWorkers', NumberWorkers, 'SaveDisk', false);
+EqualWeightedPF.EqualWeightedPF = EqualWeightedPF;
+EqualWeightedPF.ModelNames = {'EqualWeightedPF'};
+
+% Compute equally weighted portfolio VaR and ES
+PFweight = 1;
+EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
+                                         alpha);
+
+% Add equally weighted portfolio VaR and ES to evaluation structure
+VaRandES.VaR    = cat(2, VaRandES.VaR, EqualWeightedPFVaRandES.VaR);
+VaRandES.ES     = cat(2, VaRandES.ES,  EqualWeightedPFVaRandES.ES);
+VaRandES.Models = [VaRandES.Models; {'EqualWeightedPF'}];
+
+
+
+%% Add additional forecasts from other models or weighting schemes here!
+% VaRandES = ?;
+
+
+
 %% Forecast evaluation
+
+% Fissler-Ziegel (FZ) loss and Model Confidence set
 MCSTable = score_fz(VaRandES, R, 'HEval', 10, 'DateStart', 20060201, ...
                                               'DateEnd',   20221230);
 

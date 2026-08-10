@@ -24,7 +24,7 @@ function SimOut = simulate_return(CopulaEst, Returns, varargin)
 %                Fields always present:
 %                  .HStepCumReturnSim - (HxMxKxT) simulated cumulative
 %                                       returns per asset, horizon, path,
-%                                       and time
+%                                       and time (only h=H is saved)
 %                  .model             - marginal model identifier string
 %                  .MargDist          - marginal distribution
 %                  .CopulaDist        - copula distribution
@@ -167,6 +167,9 @@ else
     end
 end
 
+% Only store h = H to save memory
+HStepCumReturnSim = HStepCumReturnSim(H, :, :, :);
+
 % Pack SimOut
 SimOut.HStepCumReturnSim = HStepCumReturnSim;
 SimOut.assets            = assets;
@@ -184,9 +187,9 @@ SimOut.GARCHspec         = GARCHspec;
 
 % Save to disk
 sim_name = Model;
-if empiricalPITs
-    sim_name = [sim_name, '_empirical'];
-end
+% if empiricalPITs
+%     sim_name = [sim_name, '_empirical'];
+% end
 assets_str = strjoin(assets, '_');
 
 if SaveDisk

@@ -84,7 +84,7 @@ addParameter(p, 'DateEnd',     []);
 addParameter(p, 'BlockLength', []);
 addParameter(p, 'NBootstrap',  25000);
 addParameter(p, 'Decimals',    2);
-addParameter(p, 'MCSLevel',    0.9);
+addParameter(p, 'MCSLevel',    0.2);
 addParameter(p, 'PrintTable',  true);
 parse(p, varargin{:});
 

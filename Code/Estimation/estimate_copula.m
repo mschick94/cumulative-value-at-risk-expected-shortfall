@@ -138,7 +138,8 @@ switch margDist
 
     otherwise
         error(['estimate_copula: unknown marginal dist ''%s''. ' ...
-               'Expected ''norm'', ''t'', ''skewt'', or ''laplace''.'], margDist);
+               'Expected ''norm'', ''t'', ''skewt'', or ''laplace''.'], ...
+               margDist);
 end
 
 % Distribution-specific setup: Copula
@@ -166,8 +167,8 @@ switch copula_dist
                 get_nu_cop = false;
 
             otherwise
-                error(['estimate_copula: unknown correlation model ''%s''. ' ...
-                       'Expected ''CCC'' or ''DCC''.'], CorrModel);
+                error(['estimate_copula: unknown correlation model ' ...
+                       '''%s''. Expected ''CCC'' or ''DCC''.'], CorrModel);
         end
 
     % Student-tCopula
@@ -196,8 +197,8 @@ switch copula_dist
                 get_nu_cop = true;
 
             otherwise
-                error(['estimate_copula: unknown correlation model ''%s''. ' ...
-                       'Expected ''CCC'' or ''DCC''.'], CorrModel);
+                error(['estimate_copula: unknown correlation model ' ...
+                       '''%s''. Expected ''CCC'' or ''DCC''.'], CorrModel);
         end
         
     otherwise
@@ -323,7 +324,8 @@ for t = t_start:T
                         z_t = norminv(u_t);
                     case 't'
                         nu_cop = cop_nu(t);
-                        z_t    = sqrt((nu_cop-2)/nu_cop) * tinv(u_t, nu_cop);
+                        z_t    = sqrt((nu_cop-2)/nu_cop) * ...
+                                 tinv(u_t, nu_cop);
                 end
 
                 % DCC forward iteration
@@ -341,7 +343,8 @@ end
 
 % Pack EstOut
 if empirical_pits
-    model_name = sprintf('%s_%s_%s_empirical', margModel, CorrModel, copula_dist);
+    model_name = sprintf('%s_%s_%s_empirical', margModel, CorrModel, ...
+                         copula_dist);
 else
     model_name = sprintf('%s_%s_%s', margModel, CorrModel, copula_dist);
 end

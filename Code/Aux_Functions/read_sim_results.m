@@ -34,11 +34,12 @@ for m = 1:length(MarginalModels)
             ModelsString{j}     = model_name;
             j = j + 1;
         else
-            warning('read_sim_results: file not found: %s — skipping', filename);
+            warning('read_sim_results: file not found: %s — skipping', ...
+                    filename);
         end
     end
 end
 
-SimOut.ModelNames = ModelsString;
+SimOut.ModelNames = ModelsString(1:j-1);
 
 end

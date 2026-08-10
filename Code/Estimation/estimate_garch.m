@@ -9,17 +9,20 @@ function EstOut = estimate_garch(R, varargin)
 %       R      : (TxK) matrix of returns
 %
 %   INPUTS (optional name-value):
-%       'dist'       : String, marginal distribution
-%                      'norm' - standard normal (default)
-%                      't', 'skewt', 'laplace'
-%       'ReestFreq'  : Scalar, re-estimation freq. in days (default: 21)
-%       'WindLength' : Scalar, estimation window length (default: 1000)
-%       'NumWorkers' : Scalar, parallel workers (default: 1)
-%       'assets'     : Cell array of asset names (default: [])
-%       'dates'      : Vector of dates (default: [])
-%       'portfolio'  : String to identify portfolio construction
-%       'SaveDisk'   : Logical, store results to disk
-%                      (default: true)
+%       'dist'        : String, marginal distribution
+%                       'norm' - standard normal (default)
+%                       't', 'skewt', 'laplace'
+%       'ReestFreq'   : Scalar, re-estimation freq. in days (default: 21)
+%       'WindLength'  : Scalar, estimation window length (default: 1000)
+%       'NumWorkers'  : Scalar, parallel workers (default: 1)
+%       'assets'      : Cell array of asset names (default: [])
+%       'dates'       : Vector of dates (default: [])
+%       'portfolio'   : String to identify portfolio construction
+%       'SaveDisk'    : Logical, store results to disk
+%                       (default: true)
+%       'RiskMetrics' : Logical, use RiskMetrics fixed parameters
+%                       [omega=0, alpha=0.06, beta=0.94] instead of
+%                       estimating — forces dist='norm' (default: false)
 %
 %   OUTPUT:
 %       EstOut : Struct containing all estimation output
@@ -39,14 +42,15 @@ function EstOut = estimate_garch(R, varargin)
 
 % Name-value inputs
 p = inputParser;
-addParameter(p, 'dist',       'norm');
-addParameter(p, 'ReestFreq',  21);
-addParameter(p, 'WindLength', 1000);
-addParameter(p, 'NumWorkers', 1);
-addParameter(p, 'assets',     []);
-addParameter(p, 'dates',      []);
-addParameter(p, 'portfolio',  []);
-addParameter(p, 'SaveDisk',   true);
+addParameter(p, 'dist',        'norm');
+addParameter(p, 'ReestFreq',   21);
+addParameter(p, 'WindLength',  1000);
+addParameter(p, 'NumWorkers',  1);
+addParameter(p, 'assets',      []);
+addParameter(p, 'dates',       []);
+addParameter(p, 'portfolio',   []);
+addParameter(p, 'SaveDisk',    true);
+addParameter(p, 'RiskMetrics', false);
 parse(p, varargin{:});
 
 dist        = p.Results.dist;
@@ -57,6 +61,7 @@ assets      = p.Results.assets;
 dates       = p.Results.dates;
 portfolio   = p.Results.portfolio;
 SaveDisk    = p.Results.SaveDisk;
+RiskMetrics = p.Results.RiskMetrics;
 
 % Dimensions
 [T, K]  = size(R);
@@ -78,6 +83,16 @@ options = optimoptions(@fmincon, 'Algorithm', 'sqp', 'Display', 'off');
 
 % Bounds on constraints
 epsi = 1e-10;
+
+% RiskMetrics uses normal distribution
+if RiskMetrics
+    if ~strcmp(dist, 'norm')
+        warning(['estimate_garch: RiskMetrics uses GARCH with ' ...
+                 'normally distributed innovations - ''dist'' changed ' ...
+                 'to ''norm''.'])
+    end
+    dist = 'norm';
+end
 
 % Distribution-specific setup
 switch dist
@@ -131,7 +146,8 @@ switch dist
 
     otherwise
         error(['estimate_garch: unknown dist ''%s''. ' ...
-               'Expected ''norm'', ''t'', ''skewt'', or ''laplace''.'], dist);
+               'Expected ''norm'', ''t'', ''skewt'', or ''laplace''.'], ...
+               dist);
 end
 
 % Pre-allocate
@@ -171,9 +187,13 @@ if num_workers > 1
     parfor i = 1:n_reest
         ll_fun_local = ll_fun;
         for k = 1:K
-            r                      = R_windows{i,k};
-            GARCH_pars             = fmincon(@(pars) ll_fun_local(pars, r), ...
-                                     start, A, b, [], [], lb, ub, [], options);
+            r = R_windows{i,k};
+            if RiskMetrics
+                GARCH_pars = [0, 0.06, 0.94];
+            else
+                GARCH_pars = fmincon(@(pars) ll_fun_local(pars, r), ...
+                                 start, A, b, [], [], lb, ub, [], options);                
+            end
             [NegLLk, H_t, mu_est]  = ll_fun_local(GARCH_pars, r);
             GARCHpars_reest(i,:,k) = GARCH_pars(1:3);
             mu_reest(i,k)          = mu_est;
@@ -191,9 +211,13 @@ if num_workers > 1
 else
     for i = 1:n_reest
         for k = 1:K
-            r                      = R_windows{i,k};
-            GARCH_pars             = fmincon(@(pars) ll_fun(pars, r), ...
-                                     start, A, b, [], [], lb, ub, [], options);
+            r = R_windows{i,k};
+            if RiskMetrics
+                GARCH_pars = [0, 0.06, 0.94];
+            else
+                GARCH_pars = fmincon(@(pars) ll_fun(pars, r), ...
+                                 start, A, b, [], [], lb, ub, [], options);                
+            end            
             [NegLLk, H_t, mu_est]  = ll_fun(GARCH_pars, r);
             GARCHpars_reest(i,:,k) = GARCH_pars(1:3);
             mu_reest(i,k)          = mu_est;
@@ -242,8 +266,13 @@ for t = t_start:T
     end
 end
 
+ModelName = sprintf('GARCH_%s', dist);
+if RiskMetrics
+    ModelName = ['RiskMetrics_' ModelName]; 
+end
+
 % Pack EstOut
-EstOut.model      = sprintf('GARCH_%s', dist);
+EstOut.model      = ModelName;
 EstOut.dist       = dist;
 EstOut.assets     = assets;
 EstOut.dates      = dates;

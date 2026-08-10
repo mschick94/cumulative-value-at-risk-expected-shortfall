@@ -53,6 +53,8 @@ dist        = p.Results.dist;
 reest_freq  = p.Results.ReestFreq;
 W           = p.Results.WindLength;
 num_workers = p.Results.NumWorkers;
+assets      = p.Results.assets;
+dates       = p.Results.dates;
 portfolio   = p.Results.portfolio;
 SaveDisk    = p.Results.SaveDisk;
 
@@ -113,7 +115,8 @@ switch dist
         lb         = [     0;      0;      0;  -Inf; -1+0.05;    2];
         ub         = [   Inf; 1-epsi; 1-epsi;   Inf;  1-0.05; 1000];
         start      = [   0.2,    0.1,    0.8,   0.2,       0,   10];
-        ll_fun     = @(pars, r) VarianceModels.univ_gjr_garch_skew_t(pars, r);
+        ll_fun     = @(pars, r) ...
+                     VarianceModels.univ_gjr_garch_skew_t(pars, r);
         get_nu     = true;
         get_lambda = true;
         idx_nu     = 6;    % [omega, alpha, beta, lambda, nu]
@@ -126,7 +129,8 @@ switch dist
         lb         = [     0;      0;      0;  -Inf];
         ub         = [   Inf; 1-epsi; 1-epsi;   Inf];
         start      = [   0.2,    0.1,    0.8,   0.2];
-        ll_fun    = @(pars, r) VarianceModels.univ_gjr_garch_laplace(pars, r);
+        ll_fun    = @(pars, r) ...
+                    VarianceModels.univ_gjr_garch_laplace(pars, r);
         get_nu     = false;
         get_lambda = false;
         idx_nu     = NaN;
@@ -134,7 +138,8 @@ switch dist
 
     otherwise
         error(['estimate_gjr_garch: unknown dist ''%s''. ' ...
-               'Expected ''norm'', ''t'', ''skewt'', or ''laplace''.'], dist);
+               'Expected ''norm'', ''t'', ''skewt'', or ''laplace''.'], ...
+               dist);
 end
 
 % Pre-allocate
@@ -175,8 +180,9 @@ if num_workers > 1
         ll_fun_local = ll_fun;
         for k = 1:K
             r                      = R_windows{i,k};
-            GARCH_pars             = fmincon(@(pars) ll_fun_local(pars, r), ...
-                                      start, A, b, [], [], lb, ub, [], options);
+            GARCH_pars             = fmincon(@(pars) ...
+                                     ll_fun_local(pars, r), start, ...
+                                     A, b, [], [], lb, ub, [], options);
             [NegLLk, H_t, mu_est]  = ll_fun_local(GARCH_pars, r);
             GARCHpars_reest(i,:,k) = GARCH_pars(1:4);
             mu_reest(i,k)          = mu_est;
@@ -196,7 +202,8 @@ else
         for k = 1:K
             r                      = R_windows{i,k};
             GARCH_pars             = fmincon(@(pars) ll_fun(pars, r), ...
-                                     start, A, b, [], [], lb, ub, [], options);
+                                     start, A, b, [], [], lb, ub, [], ...
+                                     options);
             [NegLLk, H_t, mu_est]  = ll_fun(GARCH_pars, r);
             GARCHpars_reest(i,:,k) = GARCH_pars(1:4);
             mu_reest(i,k)          = mu_est;

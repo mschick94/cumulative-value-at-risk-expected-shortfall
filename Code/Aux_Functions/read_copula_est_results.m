@@ -29,14 +29,18 @@ function EstOut = read_copula_est_results(MarginalModels, CopulaModels, assets)
     EstOut     = struct();
     for m = 1:length(MarginalModels)
         for c = 1:length(CopulaModels)
-            model_name = sprintf('%s_%s', MarginalModels{m}, CopulaModels{c});
-            filename   = sprintf('Output/Estimation/Copula/EstOut_%s_%s.mat', ...
+            model_name = sprintf('%s_%s', MarginalModels{m}, ...
+                                 CopulaModels{c});
+            filename   = sprintf(['Output/Estimation/Copula/' ...
+                                  'EstOut_%s_%s.mat'], ...
                                   model_name, assets_str);
             if exist(filename, 'file')
                 tmp                    = load(filename);
                 EstOut.(model_name)    = tmp.EstOut;
             else
-                warning('read_cop_est_results: file not found: %s — skipping', filename);
+                warning('mycode:fileNotFound', ...
+                        ['read_cop_est_results: file not found: %s — ' ...
+                         'skipping'], filename);
             end
         end
     end

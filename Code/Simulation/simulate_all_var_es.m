@@ -25,8 +25,8 @@ function VaRESOut = simulate_all_var_es(EstOut, R, PFweights, alpha, ...
 %
 %   OUTPUT:
 %       VaRESOut : Struct containing:
-%                  .VaR        - (T x J x H) VaR forecasts, negative values
-%                  .ES         - (T x J x H) ES forecasts, negative values
+%                  .VaR        - (T x J x H x P) VaR forecasts, negative values
+%                  .ES         - (T x J x H x P) ES forecasts, negative values
 %                  .alpha      - significance level
 %                  .H          - simulation horizon
 %                  .M          - number of simulation paths

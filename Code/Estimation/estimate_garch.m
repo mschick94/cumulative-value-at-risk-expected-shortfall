@@ -189,7 +189,7 @@ if num_workers > 1
         for k = 1:K
             r = R_windows{i,k};
             if RiskMetrics
-                GARCH_pars = [0, 0.06, 0.94]; GARCH_pars = [0.02, 0.05, 0.93]; %!!!!!!!!!!!!!!!!!!!!!
+                GARCH_pars = [0, 0.06, 0.94];
             else
                 GARCH_pars = fmincon(@(pars) ll_fun_local(pars, r), ...
                                  start, A, b, [], [], lb, ub, [], options);                
@@ -213,7 +213,7 @@ else
         for k = 1:K
             r = R_windows{i,k};
             if RiskMetrics
-                GARCH_pars = [0, 0.06, 0.94]; GARCH_pars = [0.02, 0.05, 0.93]; %!!!!!!!!!!!!!!!!!!!!!
+                GARCH_pars = [0, 0.06, 0.94];
             else
                 GARCH_pars = fmincon(@(pars) ll_fun(pars, r), ...
                                  start, A, b, [], [], lb, ub, [], options);                

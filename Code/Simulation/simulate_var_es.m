@@ -24,8 +24,8 @@ function VaRESOut = simulate_var_es(CopulaEst, Returns, PFweights, ...
 %
 %   OUTPUT:
 %       VaRESOut : Struct containing:
-%                  .VaR        - (T x H) VaR forecasts, negative values
-%                  .ES         - (T x H) ES forecasts, negative values
+%                  .VaR        - (T x H x 1 x P) VaR forecasts, negative values
+%                  .ES         - (T x H x 1 x P) ES forecasts, negative values
 %                  .alpha      - significance level
 %                  .H          - simulation horizon
 %                  .M          - number of simulation paths

@@ -107,7 +107,7 @@ dates      = VaRES.dates;
 T          = size(dates,1);
 
 % Compute actual PF returns
-ActualPFRet = R * PFweights';
+ActualPFRet = R * PFweights;
 
 % Forecast horizons to evaluate (default is 1, ..., H)
 n_h = size(VaRES.VaR, 3);   % 1 or H depending on what was stored

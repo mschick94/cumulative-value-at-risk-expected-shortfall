@@ -1,4 +1,4 @@
-%% Portfolio VaR and ES - cumulative h-step-ahead
+%% Portfolio VaR and ES - cumulative h-step-ahead 
 
 % Change directory
 cd 'C:/Users/Schick/Documents/Forschung/8_Portfolio_Var_ES_hstep'
@@ -17,12 +17,14 @@ addpath(genpath('Code'));
 clear
 ReturnData = readtable('CTC_RET.xlsx','VariableNamingRule','preserve');
 
-% Specify assets and extract data
-assets    = {'AXP', 'BA', 'CAT', 'GE', 'HD', 'HON', 'IBM', 'JPM', 'KO', ...
-              'MCD'};
-assets_q  = strcat("'", assets, "'");
-dates     = ReturnData.Var1;
-R         = table2array(ReturnData(:, assets_q));
+% Specify assets (manually or by position in ReturnData) and extract data
+% assets = {'AXP', 'BA'};
+VarNames = ReturnData.Properties.VariableNames;
+VarNames = VarNames(2:11);
+assets = cellfun(@(x) x(2:end-1), VarNames, 'UniformOutput', false);
+assets_q = strcat("'", assets, "'");
+dates    = ReturnData.Var1;
+R        = table2array(ReturnData(:, assets_q));
 
 % Equally weighted portfolio
 weightMat = ones(max(size(assets)), 1) / max(size(assets));
@@ -33,11 +35,26 @@ WindLength = 1000;  % Window length
 
 % Simulation set-up
 Hsim = 10;
-Msim = 1000;
+Msim = 25000;
 
 % Number of workers for parallel computing 
 NumberWorkers = 4;
 
+
+%%% Specify strings to handle model names 
+
+% Specify models depending on marginal specifications estimated previously
+MarginalModels = {'GARCH_norm', 'GARCH_t', 'GARCH_skewt', ...
+                  'GARCH_laplace', 'RiskMetrics_GARCH_norm', ...
+                  'GJRGARCH_norm', 'GJRGARCH_t', 'GJRGARCH_skewt', ...
+                  'GJRGARCH_laplace'}; % Add marginal models here
+
+% Specify models depending on copula specifications estimated previously
+CopulaModels = {'CCC_norm', 'CCC_t', 'CCC_norm_empirical', ...
+                'CCC_t_empirical',  ...
+                %'DCC_norm', ...
+                %'DCC_t'
+                }; % Add Copula models here 
 
 
 %% Rolling-window estimation of the marginals
@@ -93,13 +110,8 @@ estimate_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
 
 
 %% Rolling-window estimation of the copula
-clearvars -except R assets weightMat NumberWorkers dates Hsim Msim
-
-% Specify models depending on marginal specifications estimated previously
-MarginalModels = {'GARCH_norm', 'GARCH_t', 'GARCH_skewt', ...
-                  'GARCH_laplace', 'RiskMetrics_GARCH_norm', ...
-                  'GJRGARCH_norm', 'GJRGARCH_t', 'GJRGARCH_skewt', ...
-                  'GJRGARCH_laplace'}; % Add marginal models here
+clearvars -except R assets weightMat NumberWorkers dates Hsim Msim ...
+                  MarginalModels CopulaModels
 
 % Load all combinations of univariate variance models and assets
 EstOut = read_marg_est_results(MarginalModels,assets);
@@ -204,341 +216,69 @@ estimate_copula(EstOut.GJRGARCH_laplace, 'copula_dist', 't', ...
 
 
 
-%% Simulation of H-step ahead forecast distribution 
+%% Simulation of H-step ahead portfolio VaR and ES from copula models
 clearvars -except R assets MarginalModels weightMat NumberWorkers dates ...
-                  Hsim Msim
-
-% Specify models depending on copula specifications estimated previously
-CopulaModels = {'CCC_norm', 'CCC_t', 'CCC_norm_empirical', ...
-                'CCC_t_empirical',  ...
-                %'DCC_norm', ...
-                %'DCC_t'
-                }; % Add Copula models here 
-
+                  EstOut Hsim Msim MarginalModels CopulaModels
 
 % Load all combinations of univariate variance models, assets, and copulas
 EstOut = read_copula_est_results(MarginalModels,CopulaModels,assets);
 % Check warnings, some specs are supposed to be missing, e.g. the empirical 
 % distribution should only feature normal marginals and a Gaussian Copula!
 
-% GARCH specifications
-simulate_return(EstOut.GARCH_norm_CCC_norm, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GARCH_t_CCC_norm, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GARCH_skewt_CCC_norm, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GARCH_laplace_CCC_norm, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GARCH_norm_CCC_norm_empirical, R, 'H', Hsim, ...
-                'M', Msim, 'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GARCH_norm_CCC_t, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GARCH_t_CCC_t, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GARCH_skewt_CCC_t, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GARCH_laplace_CCC_t, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
+% Simulate H-step ahead returns for all models in EstOut and compute Var/ES
+alpha = [0.01, 0.025];
+VaRandES = simulate_all_var_es(EstOut, R, weightMat, alpha, ...
+                               'H', Hsim, 'M', Msim, ...
+                               'NumWorkers', NumberWorkers, ...
+                               'OutputName', 'EquallyWeighted');
 
 
-% GJR-GARCH specifications
-simulate_return(EstOut.GJRGARCH_norm_CCC_norm, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GJRGARCH_t_CCC_norm, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GJRGARCH_skewt_CCC_norm, R, 'H', Hsim, ...
-                'M', Msim, 'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GJRGARCH_laplace_CCC_norm, R, 'H', Hsim, ...
-                'M', Msim, 'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GJRGARCH_norm_CCC_norm_empirical, R, 'H', Hsim, ...
-                'M', Msim, 'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GJRGARCH_norm_CCC_t, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GJRGARCH_t_CCC_t, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GJRGARCH_skewt_CCC_t, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
-simulate_return(EstOut.GJRGARCH_laplace_CCC_t, R, 'H', Hsim, 'M', Msim, ...
-                'NumWorkers', NumberWorkers);
+% GARCH on equally weighted portfolio
 
-
-% RiskMetrics
-simulate_return(EstOut.RiskMetrics_GARCH_norm_CCC_norm, R, 'H', Hsim, ...
-                'M', Msim, 'NumWorkers', NumberWorkers);
-simulate_return(EstOut.RiskMetrics_GARCH_norm_CCC_t, R, 'H', Hsim, ...
-                'M', Msim, 'NumWorkers', NumberWorkers);
-
-
-
-%% Compute Portfolio VaR and ES from copula models
-clearvars -except R assets MarginalModels weightMat NumberWorkers dates ...
-                  Hsim Msim
-
-% Specify models depending on copula specifications estimated previously
-CopulaModels = {'CCC_norm', 'CCC_t', 'CCC_norm_empirical', ...
-                'CCC_t_empirical'}; 
-
-% Load simulation results of all variance models, assets, and copulas
-SimOut = read_sim_results(MarginalModels, CopulaModels, assets);
-% Check warnings, some specs are supposed to be missing, e.g. the empirical 
-% distribution should only feature normal marginals and a Gaussian Copula 
-% based on a GARCH and no GJR-GARCH!
-
-% Specify alpha-quantile
-alpha = 0.01;
-VaRandES_0010 = compute_var_es(SimOut, weightMat, alpha);
-
-alpha = 0.025;
-VaRandES_0025 = compute_var_es(SimOut, weightMat, alpha);
-
-
-
-%% GARCH on equally weighted portfolio
+% Equally weighted PF returns
 R_pf  = R * weightMat;
 dists = {'norm', 't', 'skewt', 'laplace'};
 
 % GARCH benchmarks
 for d = 1:length(dists)
-    [VaRandES_0010, VaRandES_0025] = pf_garch_benchmark(dists{d}, ...
-        R_pf, VaRandES_0010, VaRandES_0025, VaRandES_0010.WindLength, ...
-        VaRandES_0010.ReestFreq, assets, dates, NumberWorkers, Hsim, Msim);
+    VaRandES = pf_garch_benchmark(dists{d}, R_pf, VaRandES, ...
+        VaRandES.WindLength, VaRandES.ReestFreq, assets, dates, ...
+        NumberWorkers, Hsim, Msim);
 end
 
 % GARCH empirical
-[VaRandES_0010, VaRandES_0025] = pf_garch_benchmark('norm', ...
-    R_pf, VaRandES_0010, VaRandES_0025, VaRandES_0010.WindLength, ...
-    VaRandES_0010.ReestFreq, assets, dates, NumberWorkers, Hsim, Msim, ...
-    'EmpiricalPits', true);
+VaRandES = pf_garch_benchmark('norm', R_pf, VaRandES, ...
+    VaRandES.WindLength, VaRandES.ReestFreq, assets, dates, ...
+    NumberWorkers, Hsim, Msim, 'EmpiricalPits', true);
 
 % GJR-GARCH benchmarks
 for d = 1:length(dists)
-    [VaRandES_0010, VaRandES_0025] = pf_garch_benchmark(dists{d}, ...
-        R_pf, VaRandES_0010, VaRandES_0025, VaRandES_0010.WindLength, ...
-        VaRandES_0010.ReestFreq, assets, dates, NumberWorkers, Hsim, ...
-        Msim, 'GJR', true);
+    VaRandES = pf_garch_benchmark(dists{d}, R_pf, VaRandES, ...
+        VaRandES.WindLength, VaRandES.ReestFreq, assets, dates, ...
+        NumberWorkers, Hsim, Msim, 'GJR', true);
 end
 
 % GJR-GARCH empirical
-[VaRandES_0010, VaRandES_0025] = pf_garch_benchmark('norm', ...
-    R_pf, VaRandES_0010, VaRandES_0025, VaRandES_0010.WindLength, ...
-    VaRandES_0010.ReestFreq, assets, dates, NumberWorkers, Hsim, Msim, ...
-    'EmpiricalPits', true, 'GJR', true);
+VaRandES = pf_garch_benchmark('norm', R_pf, VaRandES, ...
+    VaRandES.WindLength, VaRandES.ReestFreq, assets, dates, ...
+    NumberWorkers, Hsim, Msim, 'EmpiricalPits', true, 'GJR', true);
 
 
-% % Shut down parallel pool
-% if NumberWorkers > 1
-%     pool = gcp('nocreate');
-%     delete(pool);
-% end
-
-% R_pf = R * weightMat;
-% PFweight = 1;
-% 
-% %%% GARCH-Normal
-% EqualWeightedPF_marginal = estimate_garch(R_pf, 'dist', 'norm', ...
-%     'WindLength', VaRandES_0010.WindLength, 'ReestFreq', ...
-%     VaRandES_0010.ReestFreq, 'assets', assets, 'NumWorkers', ...
-%     NumberWorkers, 'dates', dates, 'Portfolio', 'EqualWeighted', ...
-%     'SaveDisk', false);
-% 
-% % K = 1 copula needed for simulation of returns
-% GARCH_norm_EqualWeightedPF = estimate_copula(EqualWeightedPF_marginal, ...
-%                                              'SaveDisk', false);
-% 
-% % Simulate return distribution
-% EqualWeightedPF = simulate_return(GARCH_norm_EqualWeightedPF, R_pf, ...
-%     'H', Hsim, 'M', Msim, 'NumWorkers', NumberWorkers, 'SaveDisk', false);
-% EqualWeightedPF.EqualWeightedPF = EqualWeightedPF;
-% EqualWeightedPF.ModelNames = {'EqualWeightedPF'};
-% 
-% % Compute equally weighted portfolio 1% VaR and ES
-% alpha = 0.01;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0010.VaR    = cat(2, VaRandES_0010.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0010.ES     = cat(2, VaRandES_0010.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0010.Models = [VaRandES_0010.Models; {'EqualWeightedPF_GARCH_norm'}];
-% 
-% % Compute equally weighted portfolio 2.5% VaR and ES
-% alpha = 0.025;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0025.VaR    = cat(2, VaRandES_0025.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0025.ES     = cat(2, VaRandES_0025.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0025.Models = [VaRandES_0025.Models; {'EqualWeightedPF_GARCH_norm'}];
-% 
-% 
-% %%% GARCH-t
-% EqualWeightedPF_marginal = estimate_garch(R_pf, 'dist', 't', ...
-%     'WindLength', VaRandES_0010.WindLength, 'ReestFreq', ...
-%     VaRandES_0010.ReestFreq, 'assets', assets, 'NumWorkers', ...
-%     NumberWorkers, 'dates', dates, 'Portfolio', 'EqualWeighted', ...
-%     'SaveDisk', false);
-% 
-% % K = 1 copula needed for simulation of returns
-% GARCH_norm_EqualWeightedPF = estimate_copula(EqualWeightedPF_marginal, ...
-%                                              'SaveDisk', false);
-% 
-% % Simulate return distribution
-% EqualWeightedPF = simulate_return(GARCH_norm_EqualWeightedPF, R_pf, ...
-%     'H', Hsim, 'M', Msim, 'NumWorkers', NumberWorkers, 'SaveDisk', false);
-% EqualWeightedPF.EqualWeightedPF = EqualWeightedPF;
-% EqualWeightedPF.ModelNames = {'EqualWeightedPF'};
-% 
-% % Compute equally weighted portfolio 1% VaR and ES
-% alpha = 0.01;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0010.VaR    = cat(2, VaRandES_0010.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0010.ES     = cat(2, VaRandES_0010.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0010.Models = [VaRandES_0010.Models; {'EqualWeightedPF_GARCH_t'}];
-% 
-% % Compute equally weighted portfolio 2.5% VaR and ES
-% alpha = 0.025;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0025.VaR    = cat(2, VaRandES_0025.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0025.ES     = cat(2, VaRandES_0025.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0025.Models = [VaRandES_0025.Models; {'EqualWeightedPF_GARCH_t'}];
-% 
-% 
-% %%% GARCH-Skew-t
-% EqualWeightedPF_marginal = estimate_garch(R_pf, 'dist', 'skewt', ...
-%     'WindLength', VaRandES_0010.WindLength, 'ReestFreq', ...
-%     VaRandES_0010.ReestFreq, 'assets', assets, 'NumWorkers', ...
-%     NumberWorkers, 'dates', dates, 'Portfolio', 'EqualWeighted', ...
-%     'SaveDisk', false);
-% 
-% % K = 1 copula needed for simulation of returns
-% GARCH_norm_EqualWeightedPF = estimate_copula(EqualWeightedPF_marginal, ...
-%                                              'SaveDisk', false);
-% 
-% % Simulate return distribution
-% EqualWeightedPF = simulate_return(GARCH_norm_EqualWeightedPF, R_pf, ...
-%     'H', Hsim, 'M', Msim, 'NumWorkers', NumberWorkers, 'SaveDisk', false);
-% EqualWeightedPF.EqualWeightedPF = EqualWeightedPF;
-% EqualWeightedPF.ModelNames = {'EqualWeightedPF'};
-% 
-% % Compute equally weighted portfolio 1% VaR and ES
-% alpha = 0.01;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0010.VaR    = cat(2, VaRandES_0010.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0010.ES     = cat(2, VaRandES_0010.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0010.Models = [VaRandES_0010.Models; {'EqualWeightedPF_GARCH_skewt'}];
-% 
-% % Compute equally weighted portfolio 2.5% VaR and ES
-% alpha = 0.025;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0025.VaR    = cat(2, VaRandES_0025.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0025.ES     = cat(2, VaRandES_0025.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0025.Models = [VaRandES_0025.Models; {'EqualWeightedPF_GARCH_skewt'}];
-% 
-% 
-% %%% GARCH-Laplace
-% EqualWeightedPF_marginal = estimate_garch(R_pf, 'dist', 'laplace', ...
-%     'WindLength', VaRandES_0010.WindLength, 'ReestFreq', ...
-%     VaRandES_0010.ReestFreq, 'assets', assets, 'NumWorkers', ...
-%     NumberWorkers, 'dates', dates, 'Portfolio', 'EqualWeighted', ...
-%     'SaveDisk', false);
-% 
-% % K = 1 copula needed for simulation of returns
-% GARCH_norm_EqualWeightedPF = estimate_copula(EqualWeightedPF_marginal, ...
-%                                              'SaveDisk', false);
-% 
-% % Simulate return distribution
-% EqualWeightedPF = simulate_return(GARCH_norm_EqualWeightedPF, R_pf, ...
-%     'H', Hsim, 'M', Msim, 'NumWorkers', NumberWorkers, 'SaveDisk', false);
-% EqualWeightedPF.EqualWeightedPF = EqualWeightedPF;
-% EqualWeightedPF.ModelNames = {'EqualWeightedPF'};
-% 
-% % Compute equally weighted portfolio 1% VaR and ES
-% alpha = 0.01;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0010.VaR    = cat(2, VaRandES_0010.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0010.ES     = cat(2, VaRandES_0010.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0010.Models = [VaRandES_0010.Models; {'EqualWeightedPF_GARCH_laplace'}];
-% 
-% % Compute equally weighted portfolio 2.5% VaR and ES
-% alpha = 0.025;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0025.VaR    = cat(2, VaRandES_0025.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0025.ES     = cat(2, VaRandES_0025.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0025.Models = [VaRandES_0025.Models; {'EqualWeightedPF_GARCH_laplace'}];
-% 
-% 
-% %%% GARCH-empirical
-% EqualWeightedPF_marginal = estimate_garch(R_pf, 'dist', 'norm', ...
-%     'WindLength', VaRandES_0010.WindLength, 'ReestFreq', ...
-%     VaRandES_0010.ReestFreq, 'assets', assets, 'NumWorkers', ...
-%     NumberWorkers, 'dates', dates, 'Portfolio', 'EqualWeighted', ...
-%     'SaveDisk', false);
-% 
-% % K = 1 copula needed for simulation of returns
-% GARCH_norm_EqualWeightedPF = estimate_copula(EqualWeightedPF_marginal, ...
-%                                              'empirical_pits', true, ...
-%                                              'SaveDisk', false);
-% 
-% % Simulate return distribution
-% EqualWeightedPF = simulate_return(GARCH_norm_EqualWeightedPF, R_pf, ...
-%     'H', Hsim, 'M', Msim, 'NumWorkers', NumberWorkers, 'SaveDisk', false);
-% EqualWeightedPF.EqualWeightedPF = EqualWeightedPF;
-% EqualWeightedPF.ModelNames = {'EqualWeightedPF'};
-% 
-% % Compute equally weighted portfolio 1% VaR and ES
-% alpha = 0.01;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0010.VaR    = cat(2, VaRandES_0010.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0010.ES     = cat(2, VaRandES_0010.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0010.Models = [VaRandES_0010.Models; {'EqualWeightedPF_GARCH_empirical'}];
-% 
-% % Compute equally weighted portfolio 2.5% VaR and ES
-% alpha = 0.025;
-% EqualWeightedPFVaRandES = compute_var_es(EqualWeightedPF, PFweight, ...
-%                                          alpha);
-% 
-% % Add equally weighted portfolio VaR and ES to evaluation structure
-% VaRandES_0025.VaR    = cat(2, VaRandES_0025.VaR, EqualWeightedPFVaRandES.VaR);
-% VaRandES_0025.ES     = cat(2, VaRandES_0025.ES,  EqualWeightedPFVaRandES.ES);
-% VaRandES_0025.Models = [VaRandES_0025.Models; {'EqualWeightedPF_GARCH_empirical'}];
+% Shut down parallel pool
+if NumberWorkers > 1
+    pool = gcp('nocreate');
+    delete(pool);
+end
 
 
+% Add additional forecasts from other models or weighting schemes here
 
-
-
-%% Add additional forecasts from other models or weighting schemes here!
-
-% Store VaaR and ES forecasts
-VaRandESName = ['VaRandES_0010_Equally_Weighted_' strjoin(assets, '_')];
-VaRandESpath = sprintf('Output/VaRandES/%s.mat', VaRandESName);
-save(VaRandESpath, 'VaRandES_0010');
-
-VaRandESName = ['VaRandES_0025_Equally_Weighted_' strjoin(assets, '_')];
-VaRandESpath = sprintf('Output/VaRandES/%s.mat', VaRandESName);
-save(VaRandESpath, 'VaRandES_0025');
+% VaRandES already saved inside simulate_all_var_es
+% Re-save with PF benchmarks added
+assets_str = strjoin(assets, '_');
+filename   = sprintf('Output/VaRandES/VaRandES_EquallyWeighted_%s.mat', ...
+                     assets_str);
+save(filename, 'VaRandES');
 
 
 
@@ -546,21 +286,208 @@ save(VaRandESpath, 'VaRandES_0025');
 clearvars -except R VaRandESpath assets
 
 % Read in VaR and ES forecasts per model
-ReadName     = ['VaRandES_0010_Equally_Weighted_' strjoin(assets, '_')];
+clearvars -except R assets
+load(sprintf('Output/VaRandES/VaRandES_EquallyWeighted_%s.mat', ...
+             strjoin(assets, '_')));
+
+ReadName     = ['VaRandES_0025_EquallyWeighted_' strjoin(assets, '_')];
 ReadNamePath = sprintf('Output/VaRandES/%s.mat', ReadName);
 load(ReadNamePath);
 
-ReadName     = ['VaRandES_0025_Equally_Weighted_' strjoin(assets, '_')];
-ReadNamePath = sprintf('Output/VaRandES/%s.mat', ReadName);
-load(ReadNamePath);
 
+%%%% Fissler-Ziegel loss function for model comparison
 
 % Fissler-Ziegel (FZ) loss and Model Confidence Set of 1% VaR and ES
 MCSTable_0010 = score_fz(VaRandES_0010, R, 'HEval', 10, ...
-                         'DateStart', 20060201, 'DateEnd',   20221230, ...
-                         'Decimals',  3);
+                         'DateStart', 20060201, 'DateEnd', 20221230, ...
+                         'Decimals', 3, 'PrintTable', false);
 
 % Fissler-Ziegel (FZ) loss and Model Confidence Set of 2.5% VaR and ES
 MCSTable_0025 = score_fz(VaRandES_0025, R, 'HEval', 10, ...
-                         'DateStart', 20060201, 'DateEnd',   20221230, ...
-                         'Decimals',  3);
+                         'DateStart', 20060201, 'DateEnd', 20221230, ...
+                         'Decimals', 3, 'PrintTable', false);
+
+
+%%%% Backtesting of VaR and ES
+var_uc_test(VaRandES_0010, R)
+
+var_uc_test(VaRandES_0025, R)
+
+
+
+%% Monte Carlo size check for backtesting functions
+
+T_sim      = 5000;
+omega_true = 0.02;
+alpha_true = 0.05;
+beta_true  = 0.93;
+mu_true    = 0;
+
+NumberWorkers = 4;
+
+% Estimate GARCH-Normal in our workflow
+WindLength_mc = 1000;
+reest_freq_mc = 21;
+assets_mc     = {'SimAsset'};
+dates_mc      = (1:T_sim)';   % integer dates
+alpha_mc      = 0.05;
+
+B              = 500;
+pValues_UC     = NaN(B, 1);
+pValues_UC_bin = NaN(B, 1);
+pValues_DQ     = NaN(B, 1);
+pValues_ES     = NaN(B, 1);
+tstat_uc     = NaN(B, 1);
+
+for b = 1:B
+    rng(b)
+    % Simulate GARCH(1,1)-Normal
+    r_sim    = NaN(T_sim, 1);
+    h_sim    = NaN(T_sim, 1);
+    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
+    r_sim(1) = sqrt(h_sim(1)) * randn;
+    for t = 2:T_sim
+        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 + beta_true*h_sim(t-1);
+        r_sim(t) = sqrt(h_sim(t)) * randn;
+    end
+
+    % Full pipeline
+    MargEst_mc = estimate_garch(r_sim, 'dist', 'norm', ...
+        'WindLength', WindLength_mc, 'ReestFreq', reest_freq_mc, ...
+        'assets', assets_mc, 'dates', dates_mc, 'SaveDisk', false, ...
+        'NumWorkers', NumberWorkers, 'RiskMetrics', true);
+    CopEst_mc  = estimate_copula(MargEst_mc, 'SaveDisk', false);
+    SimOut_mc  = simulate_return(CopEst_mc, r_sim, 'H', 1, 'M', 10000, ...
+                                 'SaveDisk', false, ...
+                                 'NumWorkers', NumberWorkers);
+    SimOut_mc.SimAsset   = SimOut_mc;
+    SimOut_mc.ModelNames = {'SimAsset'};
+
+    VaRandES_mc = compute_var_es(SimOut_mc, 1, alpha_mc);
+
+    % Collect p-values
+    [pUC, pDQ, pES, pUCbinomial, tuc]  = var_uc_test(VaRandES_mc, r_sim);
+    pValues_UC(b) = pUC;
+    pValues_UC_bin(b) = pUCbinomial;
+    pValues_DQ(b) = pDQ;
+    pValues_ES(b) = pES;
+tstat_uc(b) = tuc;
+    fprintf('Replication %d/%d done\n', b, B);
+
+    % Empirical size at 5% level
+    fprintf('UC test size:     %.3f\n', mean(pValues_UC(1:b)     < 0.05));
+    fprintf('UC Bin test size: %.3f\n', mean(pValues_UC_bin(1:b) < 0.05));
+    fprintf('DQ test size:     %.3f\n', mean(pValues_DQ(1:b)     < 0.05));
+    fprintf('ES test size:     %.3f\n', mean(pValues_ES(1:b)     < 0.05));
+end
+
+% Empirical size at 5% level
+fprintf('UC test size:     %.3f\n', mean(pValues_UC     < 0.05));
+fprintf('UC Bin test size: %.3f\n', mean(pValues_UC_bin < 0.05));
+fprintf('DQ test size:     %.3f\n', mean(pValues_DQ     < 0.05));
+fprintf('ES test size:     %.3f\n', mean(pValues_ES     < 0.05));
+
+
+
+
+figure
+histogram(tstat_uc(1:b), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('UC test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+
+
+
+
+
+
+%% Monte Carlo size check for backtesting functions
+T_sim      = 5000;
+omega_true = 0.02;
+alpha_true = 0.05;
+beta_true  = 0.93;
+mu_true    = 0;
+
+% Settings
+WindLength_mc = 1000;
+reest_freq_mc = 21;
+assets_mc     = {'SimAsset'};
+dates_mc      = (1:T_sim)';
+alpha_mc      = 0.025;
+B             = 500;
+
+% Pre-allocate
+pValues_UC     = NaN(B, 1);
+pValues_UC_bin = NaN(B, 1);
+pValues_DQ     = NaN(B, 1);
+pValues_ES     = NaN(B, 1);
+tstat_uc       = NaN(B, 1);
+
+for b = 1:B
+    rng(b)
+
+    % Simulate GARCH(1,1)-Normal
+    r_sim    = NaN(T_sim, 1);
+    h_sim    = NaN(T_sim, 1);
+    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
+    r_sim(1) = sqrt(h_sim(1)) * randn;
+    for t = 2:T_sim
+        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 + beta_true*h_sim(t-1);
+        r_sim(t) = sqrt(h_sim(t)) * randn;
+    end
+
+    % Analytical VaR and ES using true parameters — no simulation needed
+    VaR_true = norminv(alpha_mc) * sqrt(h_sim);
+    ES_true  = -normpdf(norminv(alpha_mc)) / alpha_mc * sqrt(h_sim);
+
+    % Build VaRandES_mc struct
+    VaRandES_mc.VaR        = VaR_true;
+    VaRandES_mc.ES         = ES_true;
+    VaRandES_mc.alpha      = alpha_mc;
+    VaRandES_mc.H          = 1;
+    VaRandES_mc.M          = NaN;
+    VaRandES_mc.Models     = {'SimAsset'};
+    VaRandES_mc.assets     = {'SimAsset'};
+    VaRandES_mc.dates      = dates_mc;
+    VaRandES_mc.PFweights  = 1;
+    VaRandES_mc.WindLength = WindLength_mc;
+    VaRandES_mc.ReestFreq  = reest_freq_mc;
+
+    % Collect p-values
+    [pUC, pDQ, pES, pUCbinomial, tuc] = var_uc_test(VaRandES_mc, r_sim);
+    pValues_UC(b)     = pUC;
+    pValues_UC_bin(b) = pUCbinomial;
+    pValues_DQ(b)     = pDQ;
+    pValues_ES(b)     = pES;
+    tstat_uc(b)       = tuc;
+
+    fprintf('Replication %d/%d done\n', b, B);
+    fprintf('UC test size:     %.3f\n', mean(pValues_UC(1:b)     < 0.05));
+    fprintf('UC Bin test size: %.3f\n', mean(pValues_UC_bin(1:b) < 0.05));
+    fprintf('DQ test size:     %.3f\n', mean(pValues_DQ(1:b)     < 0.05));
+    fprintf('ES test size:     %.3f\n', mean(pValues_ES(1:b)     < 0.05));
+end
+
+% Final empirical size
+fprintf('UC test size:     %.3f\n', mean(pValues_UC     < 0.05));
+fprintf('UC Bin test size: %.3f\n', mean(pValues_UC_bin < 0.05));
+fprintf('DQ test size:     %.3f\n', mean(pValues_DQ     < 0.05));
+fprintf('ES test size:     %.3f\n', mean(pValues_ES     < 0.05));
+
+% Plot t-stat distribution
+figure
+histogram(tstat_uc(1:b), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('UC test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')

@@ -1,21 +1,22 @@
-function [VaRandES_0010, VaRandES_0025] = pf_garch_benchmark(dist, ...
-    R_pf, VaRandES_0010, VaRandES_0025, WindLength, ReestFreq, ...
-    assets, dates, NumberWorkers, Hsim, Msim, varargin)
+function VaRandES = pf_garch_benchmark(dist, R_pf, VaRandES, ...
+    WindLength, ReestFreq, assets, dates, NumberWorkers, Hsim, Msim, ...
+    varargin)
 %PF_GARCH_BENCHMARK Estimate GARCH on equally weighted portfolio and add
-% VaR and ES to evaluation structures.
+% VaR and ES forecasts to the evaluation structure.
 %
-%   [VaRandES_0010, VaRandES_0025] = PF_GARCH_BENCHMARK(dist, R_pf,
-%   VaRandES_0010, VaRandES_0025, WindLength, ReestFreq, assets, dates,
-%   NumberWorkers, Hsim, Msim) estimates a GARCH model with distribution
-%   dist on the equally weighted portfolio return R_pf and adds the
-%   resulting VaR and ES forecasts to VaRandES_0010 and VaRandES_0025.
+%   VaRandES = PF_GARCH_BENCHMARK(dist, R_pf, VaRandES, WindLength,
+%   ReestFreq, assets, dates, NumberWorkers, Hsim, Msim) estimates a GARCH
+%   model with distribution dist on the equally weighted portfolio return
+%   R_pf, simulates H-step-ahead cumulative returns, and appends the
+%   resulting VaR and ES forecasts to VaRandES for all alpha levels
+%   stored in VaRandES.alpha.
 %
 %   INPUTS (required):
 %       dist          : String, marginal distribution
 %                       'norm', 't', 'skewt', 'laplace'
 %       R_pf          : (T x 1) equally weighted portfolio returns
-%       VaRandES_0010 : Struct, output from compute_var_es at alpha=0.01
-%       VaRandES_0025 : Struct, output from compute_var_es at alpha=0.025
+%       VaRandES      : Struct, output from simulate_all_var_es. Alpha
+%                       levels are read from VaRandES.alpha
 %       WindLength    : Scalar, estimation window length
 %       ReestFreq     : Scalar, re-estimation frequency in days
 %       assets        : Cell array of asset names
@@ -30,8 +31,9 @@ function [VaRandES_0010, VaRandES_0025] = pf_garch_benchmark(dist, ...
 %                         (default: false)
 %
 %   OUTPUT:
-%       VaRandES_0010 : Updated struct with PF benchmark VaR and ES added
-%       VaRandES_0025 : Updated struct with PF benchmark VaR and ES added
+%       VaRandES : Updated struct with PF benchmark VaR and ES appended
+%                  for all alpha levels. Compatible with score_fz and
+%                  var_uc_test.
 
 % Name-value inputs
 p = inputParser;
@@ -68,23 +70,16 @@ end
 PF_copula = estimate_copula(PF_marginal, 'empirical_pits', ...
                             EmpiricalPits, 'SaveDisk', false);
 
-% Simulate return distribution
-PF_sim             = simulate_return(PF_copula, R_pf, 'H', Hsim, ...
-                                     'M', Msim, 'NumWorkers', ...
-                                     NumberWorkers, 'SaveDisk', false);
-PF_sim.(model_str) = PF_sim;
-PF_sim.ModelNames  = {model_str};
+% Simulate for all alpha levels
+alpha      = VaRandES.alpha;  
+PFVaRandES = simulate_var_es(PF_copula, R_pf, 1, alpha, ...
+                              'H', Hsim, 'M', Msim, ...
+                              'NumWorkers', NumberWorkers);
 
-% Compute VaR and ES at alpha = 0.01 and add to evaluation structure
-PFVaRandES = compute_var_es(PF_sim, 1, 0.01);
-VaRandES_0010.VaR    = cat(2, VaRandES_0010.VaR, PFVaRandES.VaR);
-VaRandES_0010.ES     = cat(2, VaRandES_0010.ES,  PFVaRandES.ES);
-VaRandES_0010.Models = [VaRandES_0010.Models; {model_str}];
+% Add to evaluation structure
+VaRandES.VaR    = cat(2, VaRandES.VaR, PFVaRandES.VaR);
+VaRandES.ES     = cat(2, VaRandES.ES,  PFVaRandES.ES);
+VaRandES.Models = [VaRandES.Models, {model_str}];
 
-% Compute VaR and ES at alpha = 0.025 and add to evaluation structure
-PFVaRandES = compute_var_es(PF_sim, 1, 0.025);
-VaRandES_0025.VaR    = cat(2, VaRandES_0025.VaR, PFVaRandES.VaR);
-VaRandES_0025.ES     = cat(2, VaRandES_0025.ES,  PFVaRandES.ES);
-VaRandES_0025.Models = [VaRandES_0025.Models; {model_str}];
 
 end

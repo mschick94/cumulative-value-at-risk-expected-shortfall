@@ -119,8 +119,8 @@ classdef RiskSim
                 z = RiskSim.drawZ(H, M, K, dist, nu, lambda);
             else
                 if ~isequal(size(z), [H, M])
-                    error(['hStepSimGarch: z must be (%d x %d) but got ' ...
-                           '(%d x %d)'], H, M, size(z,1), size(z,2));
+                    error(['hStepSimGarch: z must be (%d x %d) but ' ...
+                           'got (%d x %d)'], H, M, size(z,1), size(z,2));
                 end
             end
 
@@ -136,8 +136,9 @@ classdef RiskSim
 
             expected = 3 + strcmp(model, 'gjr');
             if length(pars) ~= expected
-                warning('hStepSimGarch: model ''%s'' expects %d parameters but received %d', ...
-                        model, expected, length(pars));
+                warning(['hStepSimGarch: model ''%s'' expects %d ' ...
+                         'parameters but received %d'], ...
+                          model, expected, length(pars));
             end
 
             % Pre-specify matrices
@@ -155,7 +156,8 @@ classdef RiskSim
                     r_sim(j,:) = mu + sqrt(h_sim(j,:)) .* z(j,:);
                     if j < H
                         eps2 = (r_sim(j,:) - mu).^2;
-                        h_sim(j+1,:) = omega + alpha*eps2 + beta*h_sim(j,:);
+                        h_sim(j+1,:) = omega + alpha*eps2 ...
+                                       + beta*h_sim(j,:);
                     end
                 end
 
@@ -173,7 +175,8 @@ classdef RiskSim
                     if j < H
                         eps = r_sim(j,:) - mu;
                         I   = eps < 0;
-                        h_sim(j+1,:) = omega + (alpha + I*gamma).*eps.^2 ...
+                        h_sim(j+1,:) = omega ...
+                                       + (alpha + I*gamma).*eps.^2 ...
                                        + beta*h_sim(j,:);
                     end
                 end
@@ -255,23 +258,25 @@ classdef RiskSim
                 StdNormDraws = RiskSim.drawZ(K, H, M);
             else
                 if ~isequal(size(StdNormDraws), [K, H, M])
-                    warning(['simulateCopulaCCC: StdNormDraws expected ' ...
-                             'to be (%d x %d x %d) but got (%d x %d x %d). ' ...
-                             'Results may be incorrect.'], ...
+                    warning(['simulateCopulaCCC: StdNormDraws ' ...
+                             'expected to be (%d x %d x %d) but got ' ...
+                             '(%d x %d x %d). Results may be ' ...
+                             'incorrect.'], ...
                              K, H, M, size(StdNormDraws,1), ...
                              size(StdNormDraws,2), size(StdNormDraws,3));
                 end
             end
 
-            % Draw inverse Gamma scaling factors if t-copula and not supplied
+            % Draw inverse Gamma if t-copula and not supplied
             if strcmp(dist, 't')
                 if isempty(inv_gamma)
                     inv_gamma = sqrt(nu ./ (2.*randg(nu./2, H, M, 1)));
                 else
                     if size(inv_gamma, 1) ~= H || size(inv_gamma, 2) ~= M
-                        warning(['simulateCopulaCCC: inv_gamma expected ' ...
-                                 'to be (%d x %d x 1) but got (%d x %d x %d). ' ...
-                                 'Results may be incorrect.'], ...
+                        warning(['simulateCopulaCCC: inv_gamma ' ...
+                                 'expected to be (%d x %d x 1) but got ' ...
+                                 '(%d x %d x %d). Results may be ' ...
+                                 'incorrect.'], ...
                                  H, M, size(inv_gamma,1), ...
                                  size(inv_gamma,2), size(inv_gamma,3));
                     end
@@ -281,7 +286,8 @@ classdef RiskSim
             % Cholesky decomposition to induce correlation across assets
             draws_2d        = reshape(StdNormDraws, K, H*M)';       
             corr_draws_2d   = draws_2d * chol(R);
-            StdNormDrawsCop = permute(reshape(corr_draws_2d', K, H, M), [2,3,1]);
+            StdNormDrawsCop = permute(reshape(corr_draws_2d', K, H, M), ...
+                                      [2,3,1]);
 
             % Simulate uniform draws from the specified copula
             switch dist
@@ -293,8 +299,8 @@ classdef RiskSim
                 % Student's t-copula
                 case 't'
                     if isnan(nu)
-                        error(['simulateCopulaCCC: nu must be provided ' ...
-                               'for dist = ''t''']);
+                        error(['simulateCopulaCCC: nu must be ' ...
+                               'provided for dist = ''t''']);
                     end
 
                     StdtDrawsCop = inv_gamma .* StdNormDrawsCop; 
@@ -309,7 +315,8 @@ classdef RiskSim
 
 
 
-function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
+function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, ...
+                                                                  varargin)
         %SIMULATECOPULADCC Simulate uniform draws from a Dynamic
         % Conditional Correlation (DCC) copula.
         %
@@ -373,9 +380,10 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
                 StdNormDraws = RiskSim.drawZ(K, H, M);
             else
                 if ~isequal(size(StdNormDraws), [K, H, M])
-                    warning(['simulateCopulaCCC: StdNormDraws expected ' ...
-                             'to be (%d x %d x %d) but got (%d x %d x %d). ' ...
-                             'Results may be incorrect.'], ...
+                    warning(['simulateCopulaCCC: StdNormDraws ' ...
+                             'expected to be (%d x %d x %d) but got ' ...
+                             '(%d x %d x %d). Results may be ' ...
+                             'incorrect.'], ...
                              K, H, M, size(StdNormDraws,1), ...
                              size(StdNormDraws,2), size(StdNormDraws,3));
                 end
@@ -387,9 +395,10 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
                     inv_gamma = sqrt(nu ./ (2.*randg(nu./2, H, M, 1)));
                 else
                     if size(inv_gamma, 1) ~= H || size(inv_gamma, 2) ~= M
-                        warning(['simulateCopulaCCC: inv_gamma expected ' ...
-                                 'to be (%d x %d x 1) but got (%d x %d x %d). ' ...
-                                 'Results may be incorrect.'], ...
+                        warning(['simulateCopulaCCC: inv_gamma ' ...
+                                 'expected to be (%d x %d x 1) but got ' ...
+                                 '(%d x %d x %d). Results may be ' ...
+                                 'incorrect.'], ...
                                  H, M, size(inv_gamma,1), ...
                                  size(inv_gamma,2), size(inv_gamma,3));
                     end
@@ -410,12 +419,13 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
             for h = 1:H
                 % Apply Cholesky to each path
                 for m = 1:M
-                    draws_m                = reshape(StdNormDraws(:,h,m), K, 1)';
+                    draws_m = reshape(StdNormDraws(:,h,m), K, 1)';
                     StdNormDrawsCop(h,m,:) = draws_m * chol(R_sim(:,:,m));
 
                     % Update Q and R using current correlated draw
                     z_m          = squeeze(StdNormDrawsCop(h,m,:))';
-                    Q_sim(:,:,m) = R_bar*(1-a-b) + a*(z_m'*z_m) + b*Q_sim(:,:,m);
+                    Q_sim(:,:,m) = R_bar*(1-a-b) + a*(z_m'*z_m) ...
+                                   + b*Q_sim(:,:,m);
                     d            = diag(Q_sim(:,:,m)).^(-0.5);
                     R_sim(:,:,m) = (d*d') .* Q_sim(:,:,m);
                 end
@@ -431,8 +441,8 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
                 % Student's t-copula
                 case 't'
                     if isnan(nu)
-                        error(['simulateCopulaDCC: nu must be provided ' ...
-                               'for dist = ''t''']);
+                        error(['simulateCopulaDCC: nu must be ' ...
+                               'provided for dist = ''t''']);
                     end
 
                     StdtDrawsCop = inv_gamma .* StdNormDrawsCop; 
@@ -507,8 +517,8 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
                 % Hansens skew-t    
                 case 'skewt'
                     if isnan(nu) || isnan(lambda)
-                        error(['ReturnSim.drawZ: nu and lambda required ' ...
-                               'for dist = ''skewt''']);
+                        error(['ReturnSim.drawZ: nu and lambda ' ...
+                               'required for dist = ''skewt''']);
                     end
 
                     % Draw standardized t directly (fast)
@@ -529,8 +539,9 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
                     z(right) = (1/b) .* ((1+lambda) .* t_draws(right) - a);                    
 
                 otherwise
-                    error(['RiskSim.drawZ: unknown dist ''%s''. Expected' ...
-                           ' ''norm'', ''t'', or ''skewt''.'], dist);
+                    error(['RiskSim.drawZ: unknown dist ''%s''. ' ...
+                           'Expected ''norm'', ''t'', or ''skewt''.'], ...
+                           dist);
             end
 
         end
@@ -538,9 +549,4 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, varargin)
 
     end
 end
-
-
-
-
-
 

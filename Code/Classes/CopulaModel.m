@@ -133,12 +133,11 @@ classdef CopulaModel
             %COPULADCC Evaluate the log-likelihood of a Dynamic Conditional 
             % Correlation (DCC) copula model.
             %
-            %   [NegLL, loglike_vec, R_t] = COPULADCC(pars, u) evaluates 
-            %   the Gaussian DCC copula log-likelihood. The correlation  
-            %   matrix R_t is estimated directly from u via sample 
-            %   correlation.
+            %   [NegLL, loglike_vec] = COPULADCC(pars, u) evaluates the
+            %   Gaussian DCC copula log-likelihood. The correlation matrix
+            %   R_t is estimated directly from u via sample correlation.
             %
-            %   [NegLL, loglike_vec, R_t] = COPULADCC(pars, u, 'dist', 't')
+            %   [NegLL, loglike_vec] = COPULADCC(pars, u, 'dist', 't')
             %   evaluates the Student-t DCC copula log-likelihood with 
             %   degrees of freedom nu = pars.
             %
@@ -162,9 +161,12 @@ classdef CopulaModel
             %       NegLL       : Scalar, negative log-likelihood
             %       loglike_vec : (Tx1) vector of log-likelihood 
             %                     contributions
-            %       R_t         : (KxKxT) dynamic correlation matrix, 
-            %                     estimated via sample correlation of 
+            %       R_last      : (KxK) dynamic correlation matrix at time, 
+            %                     t-1, estimated via sample correlation of 
             %                     transformed u
+            %       Q_last      : (KxK) Q-matrix t time t-1 
+            %       R_bar       : (KxK) unconditional correlation matrix of 
+            %                     standardized residuals
             %
             %   NOTES:
             %       - For the t-copula, nu is capped at 1e8 for numerical
@@ -275,7 +277,7 @@ classdef CopulaModel
             loglike_vec(1) = [];
             NegLL = -sum(loglike_vec);
 
-            % Outout for simulation from the copula with DCC
+            % Output for simulation from the copula with DCC
             R_last = R_old;
             Q_last = Q_old;
 

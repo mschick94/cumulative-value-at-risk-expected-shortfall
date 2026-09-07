@@ -2,11 +2,11 @@ classdef VarianceModels
     %VARIANCEMODELS A container class for variance model estimation.
     %
     %   Contains static methods for negative log-likelihood evaluation
-    %   of univariate variance models. Currently implements GARCH(1,1)
-    %   with normal, Student-t, and Hansen skew-t innovations.
+    %   of univariate variance models. Currently implements GARCH(1,1) and 
+    %   Heavy(1,1) with normal, Student-t, and Hansen skew-t innovations.
     %
     %   Designed to be extended with additional variance models
-    %   (e.g. GJR-GARCH, EGARCH) as needed.
+    %   (e.g. EGARCH, GARCHX) as needed.
     %
     %   Usage:
     %       NegLL = VarianceModels.univ_garch(pars, r)
@@ -224,7 +224,8 @@ classdef VarianceModels
         end
 
 
-        function [NegLL, H_t, SampleMean] = univ_gjr_garch_t(pars, r, EstMean)
+        function [NegLL, H_t, SampleMean] = univ_gjr_garch_t(pars, r, ...
+                                                                   EstMean)
         %UNIV_GJR_GARCH_T Estimate a univariate GJR-GARCH(1,1)-t model
         %
         %   [NegLL, H_t] = UNIV_GJR_GARCH_t(pars, epsi) computes the 
@@ -375,12 +376,12 @@ classdef VarianceModels
                 
                 if z < x_star
                     ll(i) = log_b + log_c ...
-                        - 0.5*(nu+1) * log(1 + (1/(nu-2)) * ( (b*z + a)/(1-lambda) )^2) ...
-                        - log(sigma_t);
+                            - 0.5*(nu+1) * log(1 + (1/(nu-2)) ...
+                            * ( (b*z + a)/(1-lambda) )^2) - log(sigma_t);
                 else
                     ll(i) = log_b + log_c ...
-                        - 0.5*(nu+1) * log(1 + (1/(nu-2)) * ( (b*z + a)/(1+lambda) )^2) ...
-                        - log(sigma_t);
+                            - 0.5*(nu+1) * log(1 + (1/(nu-2)) ...
+                            * ( (b*z + a)/(1+lambda) )^2) - log(sigma_t);
                 end
             
             end
@@ -476,12 +477,12 @@ classdef VarianceModels
                 
                 if z < x_star
                     ll(i) = log_b + log_c ...
-                        - 0.5*(nu+1) * log(1 + (1/(nu-2)) * ( (b*z + a)/(1-lambda) )^2) ...
-                        - log(sigma_t);
+                            - 0.5*(nu+1) * log(1 + (1/(nu-2)) ...
+                            * ( (b*z + a)/(1-lambda) )^2) - log(sigma_t);
                 else
                     ll(i) = log_b + log_c ...
-                        - 0.5*(nu+1) * log(1 + (1/(nu-2)) * ( (b*z + a)/(1+lambda) )^2) ...
-                        - log(sigma_t);
+                            - 0.5*(nu+1) * log(1 + (1/(nu-2)) ...
+                            * ( (b*z + a)/(1+lambda) )^2) - log(sigma_t);
                 end
             
             end
@@ -561,8 +562,8 @@ classdef VarianceModels
         end
 
 
-        function [NegLL, H_t, SampleMean] = univ_gjr_garch_laplace(pars, ...
-                                                                r, EstMean)
+        function [NegLL, H_t, SampleMean] = ...
+                                   univ_gjr_garch_laplace(pars, r, EstMean)
         %UNIV_GJR_GARCH_LAPLACE Estimate a univariate GJR-GARCH(1,1) model
         % with Laplace innovations
         %
@@ -631,6 +632,106 @@ classdef VarianceModels
             NegLL = -sum(ll);
                 
         end
+
+
+%==========================================================================
+%       Likelihoods of Heavy-type models
+%==========================================================================        
+
+        function [NegLL, H_t] = univ_heavy_RM(pars, RV)
+        %UNIV_HEAVY_RM Estimate the RM equation of a univariate HEAVY model
+        %
+        %   [NegLL, H_t] = UNIV_HEAVY_RV(pars, RV) computes the negative
+        %   log-likelihood of the realized variance equation of the HEAVY
+        %   model using a Gamma distribution for RV.
+        %
+        %   INPUT:
+        %       pars : (4x1) parameter vector
+        %              pars(1) - omega (constant)
+        %              pars(2) - alpha (RV coefficient)
+        %              pars(3) - beta  (variance persistence)
+        %              pars(4) - phi   (Gamma dispersion parameter)
+        %
+        %       RV  : (Tx1) vector of realized variances
+        %
+        %   OUTPUT:
+        %       NegLL : Scalar, negative log-likelihood
+        %       H_t   : (Tx1) vector of conditional variances
+        %
+
+            % Initialize
+            omega = pars(1);
+            alpha = pars(2);
+            beta  = pars(3);
+            phi   = pars(4);
+            n     = size(RV,1);
+
+            % Unconditional variance initialization
+            H_bar  = mean(RV);
+            H_t    = NaN(n,1);
+            H_t(1) = H_bar;
+            
+            % Recursion for conditional variances
+            for i = 1:n-1
+                H_t(i+1) = alpha*RV(i) + beta*H_t(i) + omega;
+            end
+            
+            % Negative log-likelihood
+            % (same number of LL-contributions as in GARCH specifications)
+            H_std = H_t(2:end) / phi;
+            RV(1) = [];
+            NegLL = sum( gammaln(H_std) + H_std * log(phi) ...
+                         - (H_std - 1) .* log(RV) + RV / phi );
+
+        end
+
+
+        function [NegLL, H_t, SampleMean] = univ_heavy_r(pars, r, RVfilt, EstMean)
+        %KOMMENTARE
+           
+            % Optional estimation settings
+            if nargin < 4
+                EstMean = true;
+            end
+
+            % Estimate sample mean of r
+            if EstMean
+                SampleMean = mean(r);
+                r          = r - SampleMean;
+            else
+                SampleMean = [];
+            end
+
+            % Initialize
+            omega = pars(1);
+            alpha = pars(2);
+            beta  = pars(3);
+            n     = size(r,1);
+
+            % Unconditional variance initialization
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
+            H_t(1) = H_bar;
+            
+            % Recursion for conditional variances
+            for i = 1:n-1
+                H_t(i+1) = alpha*RV(i)^2 + beta*RVfilt(i) + omega;
+            end
+            
+            % Log-likelihood contributions
+            ll = NaN(n,1);
+            for i = 2:n
+                ll(i) = - 1/2 * log(2*pi) - 0.5 * log(H_t(i)) ...
+                        - 0.5 * r(i)^2 / H_t(i);
+            end
+              
+            % Negative log-likelihood
+            ll(1) = [];
+            NegLL = -sum(ll);
+                
+        end
+
+
 
 
     end

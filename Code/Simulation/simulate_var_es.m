@@ -180,6 +180,7 @@ if num_workers > 1
         
         % Sort and compute VaR/ES per horizon
         sorted_H = sort(PFRet_H);
+        alpha_local = alpha;
         for p = 1:P
             idx        = max(1, floor(alpha_local(p) * M));
             VaR(t,1,p) = sorted_H(idx);

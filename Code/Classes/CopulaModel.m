@@ -227,8 +227,9 @@ classdef CopulaModel
                 % Student's t-copula
                 case 't'
                     if max(size(pars)) < 3
-                        error(['CopulaModel.CopulaDCC: pars must be a ' ...
-                               '3-dimensional vector for alpha, beta, and nu']);
+                        error(['CopulaModel.CopulaDCC: pars must be ' ...
+                               'a 3-dimensional vector for alpha, ' ...
+                               'beta, and nu']);
                     end
 
                     % Read out paramters
@@ -388,12 +389,13 @@ classdef CopulaModel
                         % Left side
                         arg_left  = (b*z(left,k) + a)/(1 - lambdak);
                         u(left,k) = (1 - lambdak) * ...
-                                    tcdf(arg_left * sqrt(nuk/(nuk-2)) , nuk);
+                                    tcdf(arg_left*sqrt(nuk/(nuk-2)), nuk);
 
                         % Right side
                         arg_right  = (b*z(right,k) + a)/(1 + lambdak);
                         u(right,k) = (1 - lambdak)/2 + (1 + lambdak) * ...
-                                     (tcdf(arg_right * sqrt(nuk/(nuk-2)) , nuk) - 0.5);
+                                     (tcdf(arg_right * ...
+                                           sqrt(nuk/(nuk-2)) , nuk) - 0.5);
                     end
 
                 % Laplace

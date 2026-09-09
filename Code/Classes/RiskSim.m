@@ -115,6 +115,12 @@ classdef RiskSim
 
             % Simulated innovations — draw internally if z not supplied
             if isempty(z)
+                    if ismember(dist, {'laplace', 'empirical'})
+                        error(['hStepSimGarch: dist ''%s'' requires z ' ...
+                               'to be provided externally — internal ' ...
+                               'drawing not supported for this ' ...
+                               'distribution'], dist);
+                    end
                 rng(1); % only set seed when drawing internally
                 z = RiskSim.drawZ(H, M, K, dist, nu, lambda);
             else
@@ -183,8 +189,9 @@ classdef RiskSim
             R_cum = cumsum(r_sim, 1);   % row h = sum of steps 1..h
             
             % VaR and ES at each horizon h at 'conf' level
-            VaR = NaN(H, 1);
-            ES  = NaN(H, 1);
+            VaR   = NaN(H, 1);
+            ES    = NaN(H, 1);
+            h_sim = NaN;
             
             % for h = 1:H
             %     sorted = sort(R_cum(h, :));        % sort ascending
@@ -271,8 +278,8 @@ classdef RiskSim
                 else
                     if size(inv_gamma, 1) ~= H || size(inv_gamma, 2) ~= M
                         warning(['simulateCopulaCCC: inv_gamma ' ...
-                                 'expected to be (%d x %d x 1) but got ' ...
-                                 '(%d x %d x %d). Results may be ' ...
+                                 'expected to be (%d x %d x 1) but ' ...
+                                 'got (%d x %d x %d). Results may be ' ...
                                  'incorrect.'], ...
                                  H, M, size(inv_gamma,1), ...
                                  size(inv_gamma,2), size(inv_gamma,3));
@@ -386,15 +393,15 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, ...
                 end
             end
 
-            % Draw inverse Gamma scaling factors if t-copula and not supplied
+            % Draw inverse Gamma if t-copula and not supplied
             if strcmp(dist, 't')
                 if isempty(inv_gamma)
                     inv_gamma = sqrt(nu ./ (2.*randg(nu./2, H, M, 1)));
                 else
                     if size(inv_gamma, 1) ~= H || size(inv_gamma, 2) ~= M
                         warning(['simulateCopulaCCC: inv_gamma ' ...
-                                 'expected to be (%d x %d x 1) but got ' ...
-                                 '(%d x %d x %d). Results may be ' ...
+                                 'expected to be (%d x %d x 1) but ' ...
+                                 'got (%d x %d x %d). Results may be ' ...
                                  'incorrect.'], ...
                                  H, M, size(inv_gamma,1), ...
                                  size(inv_gamma,2), size(inv_gamma,3));
@@ -533,7 +540,16 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, ...
                     left     = t_draws < 0;
                     right    = t_draws >= 0;
                     z(left)  = (1/b) .* ((1-lambda) .* t_draws(left) - a);
-                    z(right) = (1/b) .* ((1+lambda) .* t_draws(right) - a);                    
+                    z(right) = (1/b) .* ((1+lambda) .* t_draws(right) - a);   
+
+                % Laplace
+                case 'laplace'
+                    u = rand(H, M, K);
+                    z = sign(u - 0.5) .* log(1 - 2*abs(u - 0.5)) / sqrt(2);
+
+                case 'empirical'
+                    error(['drawZ: empirical distribution requires z ' ...
+                           'to be provided externally']);    
 
                 otherwise
                     error(['RiskSim.drawZ: unknown dist ''%s''. ' ...

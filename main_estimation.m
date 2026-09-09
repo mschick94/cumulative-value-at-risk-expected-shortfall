@@ -16,6 +16,8 @@ addpath(genpath('Code'));
 % Load return data
 clear
 ReturnData = readtable('CTC_RET.xlsx','VariableNamingRule','preserve');
+RVData     = load('Start_data_10_30_50_2002_2023.mat');
+RV         = RVData.RCOV_CTC_vech_10;
 
 % Specify assets (manually or by position in ReturnData) and extract data
 % assets = {'AXP', 'BA'};
@@ -43,16 +45,17 @@ NumberWorkers = 4;
 
 %%% Specify strings to handle model names 
 
-% Specify models depending on marginal specifications
+% Specify models depending on marginal specifications estimated previously
 MarginalModels = {'GARCH_norm', 'GARCH_t', 'GARCH_skewt', ...
                   'GARCH_laplace', 'RiskMetrics_GARCH_norm', ...
                   'GJRGARCH_norm', 'GJRGARCH_t', 'GJRGARCH_skewt', ...
-                  'GJRGARCH_laplace'}; % Add marginal models here
+                  'GJRGARCH_laplace', ...
+                  'HEAVY_norm'}; % Add marginal models here
 
-% Specify models depending on copula specifications
+% Specify models depending on copula specifications estimated previously
 CopulaModels = {'CCC_norm', 'CCC_t', 'CCC_norm_empirical', ...
                 'CCC_t_empirical',  ...
-                %'DCC_norm', ...
+                'DCC_norm_empirical', ...
                 %'DCC_t'
                 }; % Add Copula models here 
 
@@ -106,6 +109,17 @@ estimate_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
                   'ReestFreq', reest_freq, 'assets', assets, ...
                   'NumWorkers', NumberWorkers, 'dates', dates, ...
                   'RiskMetrics', true);
+
+
+% Heavy-Normal
+estimate_heavy(R, RV, 'dist', 'norm', 'WindLength', WindLength, ...
+                      'ReestFreq', reest_freq, 'assets', assets, ...
+                      'NumWorkers', NumberWorkers, 'dates', dates);
+
+% Heavy-Laplace
+estimate_heavy(R, RV, 'dist', 'laplace', 'WindLength', WindLength, ...
+                      'ReestFreq', reest_freq, 'assets', assets, ...
+                      'NumWorkers', NumberWorkers, 'dates', dates);
 
 
 
@@ -215,12 +229,20 @@ estimate_copula(EstOut.GJRGARCH_laplace, 'copula_dist', 't', ...
 
 
 
+%%%% GJR-GARCH(1,1) with various distributions and DCC Copula
+
+% GJR-GARCH(1,1)-Empirical
+estimate_copula(EstOut.GJRGARCH_norm, 'copula_dist', 'norm', ...
+                'corr_model', 'DCC', 'empirical_pits', true, ...
+                'NumWorkers', NumberWorkers);
+
+
 
 %% Simulation of H-step ahead portfolio VaR and ES from copula models
 clearvars -except R assets MarginalModels weightMat NumberWorkers dates ...
                   EstOut Hsim Msim MarginalModels CopulaModels
 
-% Load all combinations of univariate variance models, assets, and copulas
+% Load all combinations of variance models, assets, and copulas
 EstOut = read_copula_est_results(MarginalModels,CopulaModels,assets);
 % Check warnings, some specs are supposed to be missing, e.g. the empirical 
 % distribution should only feature normal marginals and a Gaussian Copula!
@@ -290,14 +312,14 @@ clearvars -except R assets
 load(sprintf('Output/VaRandES/VaRandES_EquallyWeighted_%s.mat', ...
              strjoin(assets, '_')));
 
-ReadName     = ['VaRandES_0025_EquallyWeighted_' strjoin(assets, '_')];
-ReadNamePath = sprintf('Output/VaRandES/%s.mat', ReadName);
-load(ReadNamePath);
-
 
 %%%% Fissler-Ziegel loss function for model comparison
 
 % Fissler-Ziegel (FZ) loss and Model Confidence Set of 1% VaR and ES
+VaRandES_0010 = VaRandES; 
+VaRandES_0010.alpha = VaRandES_0010.alpha(1);
+VaRandES_0010.VaR(:,:,:,2)=[]; VaRandES_0010.VaR = squeeze(VaRandES_0010.VaR);
+VaRandES_0010.ES(:,:,:,2)=[]; VaRandES_0010.ES = squeeze(VaRandES_0010.ES);
 MCSTable_0010 = score_fz(VaRandES_0010, R, 'HEval', 10, ...
                          'DateStart', 20060201, 'DateEnd', 20221230, ...
                          'Decimals', 3, 'PrintTable', false);
@@ -306,4 +328,386 @@ MCSTable_0010 = score_fz(VaRandES_0010, R, 'HEval', 10, ...
 MCSTable_0025 = score_fz(VaRandES_0025, R, 'HEval', 10, ...
                          'DateStart', 20060201, 'DateEnd', 20221230, ...
                          'Decimals', 3, 'PrintTable', false);
+
+
+%%%% Backtesting of VaR and ES
+var_uc_test(VaRandES_0010, R)
+
+var_uc_test(VaRandES_0025, R)
+
+
+
+%% Monte Carlo - GARCH-N
+T_sim      = 5000;
+omega_true = 0.01;
+alpha_true = 0.03;
+beta_true  = 0.95;
+nu_true    = 5;
+
+B     = 500;
+Msim  = 25000;
+H_mc  = 10;
+alpha = [0.01, 0.025];
+
+% Estimate GARCH-Normal/t
+WindLength_mc = 1000;
+reest_freq_mc = 250;
+
+UC_t                = NaN(B, 2);
+UC_p_one_sided      = NaN(B, 2);
+UC_p_two_sided      = NaN(B, 2);
+UC_bern_t           = NaN(B, 2);
+UC_bern_p_one_sided = NaN(B, 2);
+UC_bern_p_two_sided = NaN(B, 2);
+ES_t                = NaN(B, 2);
+ES_p_one_sided      = NaN(B, 2);
+ES_p_two_sided      = NaN(B, 2);
+GARCH_pars          = NaN(B, 4);
+
+% Draw random numbers
+rng(1)
+z_sim = randn(H_mc, Msim);
+
+for b = 1:B
+
+    % Simulate GARCH(1,1)-Normal
+    rng(b)
+    r_sim    = NaN(T_sim, 1);
+    h_sim    = NaN(T_sim, 1);
+    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
+    r_sim(1) = sqrt(h_sim(1)) * randn;
+    for t = 2:T_sim
+        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 ...
+                   + beta_true*h_sim(t-1);
+        r_sim(t) = sqrt(h_sim(t)) * randn;
+    end
+
+    % Simulate VaR and ES 
+    [VaR, ES, EstPars] = simulate_var_es_univ(r_sim, alpha,'H', H_mc, ...
+                                           'M', Msim, ...
+                                           'WindLength', WindLength_mc, ...
+                                           'ReestFreq', reest_freq_mc, ...
+                                           'TruePars', [], 'z_sim', z_sim);
+
+    % US and ES test
+    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, alpha(1), ...
+                                   10, WindLength_mc);
+    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, alpha(2), ...
+                                   10, WindLength_mc);
+
+    % Collect test results
+    GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
+                        mean(EstPars.GARCHpars(WindLength_mc+1:end,:))];
+    UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
+    UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
+    UC_p_one_sided(b,:)      = [TestRes_0010.UC_p_one_sided,      TestRes_0025.UC_p_one_sided];
+    UC_p_two_sided(b,:)      = [TestRes_0010.UC_p_two_sided,      TestRes_0025.UC_p_two_sided];
+    UC_bern_p_one_sided(b,:) = [TestRes_0010.UC_bern_p_one_sided, TestRes_0025.UC_bern_p_one_sided];
+    UC_bern_p_two_sided(b,:) = [TestRes_0010.UC_bern_p_two_sided, TestRes_0025.UC_bern_p_two_sided];
+    ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
+    ES_p_one_sided(b,:)      = [TestRes_0010.ES_p_one_sided,      TestRes_0025.ES_p_one_sided];
+    ES_p_two_sided(b,:)      = [TestRes_0010.ES_p_two_sided,      TestRes_0025.ES_p_two_sided];
+
+    fprintf('Replication %d/%d done\n', b, B);
+
+end
+
+% Pack simulation results
+SimBacktest.UC_t                = UC_t;
+SimBacktest.UC_p_one_sided      = UC_p_one_sided;
+SimBacktest.UC_p_two_sided      = UC_p_two_sided;
+SimBacktest.UC_bern_t           = UC_bern_t;
+SimBacktest.UC_bern_p_one_sided = UC_bern_p_one_sided;
+SimBacktest.UC_bern_p_two_sided = UC_bern_p_two_sided;
+SimBacktest.ES_t                = ES_t;
+SimBacktest.ES_p_one_sided      = ES_p_one_sided;
+SimBacktest.ES_p_two_sided      = ES_p_two_sided;
+SimBacktest.GARCH_pars          = GARCH_pars;
+SimBacktest.B                   = B;
+SimBacktest.T_sim               = T_sim;
+SimBacktest.H_mc                = H_mc;
+SimBacktest.Msim                = Msim;
+SimBacktest.WindLength_mc       = WindLength_mc;
+SimBacktest.reest_freq_mc       = reest_freq_mc;
+SimBacktest.omega_true          = omega_true;
+SimBacktest.alpha_true          = alpha_true;
+SimBacktest.beta_true           = beta_true;
+SimBacktest.alpha               = alpha;
+
+filename = sprintf(['Output/SimBacktests/SimBacktest_EstPars_GARCHN_' ...
+                    'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
+save(filename, 'SimBacktest');
+fprintf('Results saved to %s\n', filename);
+
+
+% True parameters
+true_vec = [omega_true, alpha_true, beta_true];
+
+UC_t                = NaN(B, 2);
+UC_p_one_sided      = NaN(B, 2);
+UC_p_two_sided      = NaN(B, 2);
+UC_bern_t           = NaN(B, 2);
+UC_bern_p_one_sided = NaN(B, 2);
+UC_bern_p_two_sided = NaN(B, 2);
+ES_t                = NaN(B, 2);
+ES_p_one_sided      = NaN(B, 2);
+ES_p_two_sided      = NaN(B, 2);
+GARCH_pars          = NaN(B, 4);
+
+% Draw random numbers
+rng(1)
+z_sim = randn(H_mc, Msim);
+
+for b = 1:B
+
+    % Simulate GARCH(1,1)-Normal
+    rng(b)
+    r_sim    = NaN(T_sim, 1);
+    h_sim    = NaN(T_sim, 1);
+    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
+    r_sim(1) = sqrt(h_sim(1)) * randn;
+    for t = 2:T_sim
+        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 ...
+                   + beta_true*h_sim(t-1);
+        r_sim(t) = sqrt(h_sim(t)) * randn;
+    end
+
+    % Simulate VaR and ES 
+    [VaR, ES, EstPars] = simulate_var_es_univ(r_sim, alpha,'H', H_mc, ...
+                                           'M', Msim, ...
+                                           'WindLength', WindLength_mc, ...
+                                           'ReestFreq', reest_freq_mc, ...
+                                           'TruePars', true_vec, ...
+                                           'z_sim', z_sim);
+
+    % US and ES test
+    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, alpha(1), ...
+                                   10, WindLength_mc);
+    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, alpha(2), ...
+                                   10, WindLength_mc);
+
+    % Collect test results
+    GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
+                        mean(EstPars.GARCHpars(WindLength_mc+1:end,:))];
+    UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
+    UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
+    UC_p_one_sided(b,:)      = [TestRes_0010.UC_p_one_sided,      TestRes_0025.UC_p_one_sided];
+    UC_p_two_sided(b,:)      = [TestRes_0010.UC_p_two_sided,      TestRes_0025.UC_p_two_sided];
+    UC_bern_p_one_sided(b,:) = [TestRes_0010.UC_bern_p_one_sided, TestRes_0025.UC_bern_p_one_sided];
+    UC_bern_p_two_sided(b,:) = [TestRes_0010.UC_bern_p_two_sided, TestRes_0025.UC_bern_p_two_sided];
+    ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
+    ES_p_one_sided(b,:)      = [TestRes_0010.ES_p_one_sided,      TestRes_0025.ES_p_one_sided];
+    ES_p_two_sided(b,:)      = [TestRes_0010.ES_p_two_sided,      TestRes_0025.ES_p_two_sided];
+
+    fprintf('Replication %d/%d done\n', b, B);
+
+end
+
+% Pack simulation results
+SimBacktest.UC_t                = UC_t;
+SimBacktest.UC_p_one_sided      = UC_p_one_sided;
+SimBacktest.UC_p_two_sided      = UC_p_two_sided;
+SimBacktest.UC_bern_t           = UC_bern_t;
+SimBacktest.UC_bern_p_one_sided = UC_bern_p_one_sided;
+SimBacktest.UC_bern_p_two_sided = UC_bern_p_two_sided;
+SimBacktest.ES_t                = ES_t;
+SimBacktest.ES_p_one_sided      = ES_p_one_sided;
+SimBacktest.ES_p_two_sided      = ES_p_two_sided;
+SimBacktest.GARCH_pars          = GARCH_pars;
+SimBacktest.B                   = B;
+SimBacktest.T_sim               = T_sim;
+SimBacktest.H_mc                = H_mc;
+SimBacktest.Msim                = Msim;
+SimBacktest.WindLength_mc       = WindLength_mc;
+SimBacktest.reest_freq_mc       = reest_freq_mc;
+SimBacktest.omega_true          = omega_true;
+SimBacktest.alpha_true          = alpha_true;
+SimBacktest.beta_true           = beta_true;
+SimBacktest.alpha               = alpha;
+
+filename = sprintf(['Output/SimBacktests/SimBacktest_TruePars_GARCHN_' ...
+                    'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
+save(filename, 'SimBacktest');
+fprintf('Results saved to %s\n', filename);
+
+
+% Monte Carlo - GARCH-t
+UC_t                = NaN(B, 2);
+UC_p_one_sided      = NaN(B, 2);
+UC_p_two_sided      = NaN(B, 2);
+UC_bern_t           = NaN(B, 2);
+UC_bern_p_one_sided = NaN(B, 2);
+UC_bern_p_two_sided = NaN(B, 2);
+ES_t                = NaN(B, 2);
+ES_p_one_sided      = NaN(B, 2);
+ES_p_two_sided      = NaN(B, 2);
+GARCH_pars          = NaN(B, 5);
+
+% Draw random numbers
+rng(1)
+z_sim = trnd(nu_true, H_mc, Msim) / sqrt(nu_true/(nu_true-2));
+
+for b = 1:B
+
+    % Simulate GARCH(1,1)-t
+    rng(b)
+    r_sim    = NaN(T_sim, 1);
+    h_sim    = NaN(T_sim, 1);
+    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
+    r_sim(1) = sqrt(h_sim(1)) * trnd(nu_true) / sqrt(nu_true/(nu_true-2));
+    for t = 2:T_sim
+        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 ...
+                   + beta_true*h_sim(t-1);
+        r_sim(t) = sqrt(h_sim(t))*trnd(nu_true)/sqrt(nu_true/(nu_true-2));
+    end
+
+    % Simulate VaR and ES 
+    [VaR, ES, EstPars] = simulate_var_es_univ(r_sim, alpha,'H', H_mc, ...
+                                           'M', Msim, 'dist', 't', ...
+                                           'WindLength', WindLength_mc, ...
+                                           'ReestFreq', reest_freq_mc, ...
+                                           'TruePars', [], 'z_sim', z_sim);
+
+    % US and ES test
+    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, alpha(1), ...
+                                   10, WindLength_mc);
+    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, alpha(2), ...
+                                   10, WindLength_mc);
+
+    % Collect test results
+    GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
+                        mean(EstPars.GARCHpars(WindLength_mc+1:end,:)), ...
+                        mean(EstPars.margNu(WindLength_mc+1:end,:))];
+    UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
+    UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
+    UC_p_one_sided(b,:)      = [TestRes_0010.UC_p_one_sided,      TestRes_0025.UC_p_one_sided];
+    UC_p_two_sided(b,:)      = [TestRes_0010.UC_p_two_sided,      TestRes_0025.UC_p_two_sided];
+    UC_bern_p_one_sided(b,:) = [TestRes_0010.UC_bern_p_one_sided, TestRes_0025.UC_bern_p_one_sided];
+    UC_bern_p_two_sided(b,:) = [TestRes_0010.UC_bern_p_two_sided, TestRes_0025.UC_bern_p_two_sided];
+    ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
+    ES_p_one_sided(b,:)      = [TestRes_0010.ES_p_one_sided,      TestRes_0025.ES_p_one_sided];
+    ES_p_two_sided(b,:)      = [TestRes_0010.ES_p_two_sided,      TestRes_0025.ES_p_two_sided];
+
+    fprintf('Replication %d/%d done\n', b, B);
+
+end
+
+% Pack simulation results
+SimBacktest.UC_t                = UC_t;
+SimBacktest.UC_p_one_sided      = UC_p_one_sided;
+SimBacktest.UC_p_two_sided      = UC_p_two_sided;
+SimBacktest.UC_bern_t           = UC_bern_t;
+SimBacktest.UC_bern_p_one_sided = UC_bern_p_one_sided;
+SimBacktest.UC_bern_p_two_sided = UC_bern_p_two_sided;
+SimBacktest.ES_t                = ES_t;
+SimBacktest.ES_p_one_sided      = ES_p_one_sided;
+SimBacktest.ES_p_two_sided      = ES_p_two_sided;
+SimBacktest.GARCH_pars          = GARCH_pars;
+SimBacktest.B                   = B;
+SimBacktest.T_sim               = T_sim;
+SimBacktest.H_mc                = H_mc;
+SimBacktest.Msim                = Msim;
+SimBacktest.WindLength_mc       = WindLength_mc;
+SimBacktest.reest_freq_mc       = reest_freq_mc;
+SimBacktest.omega_true          = omega_true;
+SimBacktest.alpha_true          = alpha_true;
+SimBacktest.beta_true           = beta_true;
+SimBacktest.alpha               = alpha;
+
+filename = sprintf(['Output/SimBacktests/SimBacktest_EstPars_GARCHt_' ...
+                    'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
+save(filename, 'SimBacktest');
+fprintf('Results saved to %s\n', filename);
+
+
+% True parameters
+true_vec = [omega_true, alpha_true, beta_true, nu_true];
+
+UC_t                = NaN(B, 2);
+UC_p_one_sided      = NaN(B, 2);
+UC_p_two_sided      = NaN(B, 2);
+UC_bern_t           = NaN(B, 2);
+UC_bern_p_one_sided = NaN(B, 2);
+UC_bern_p_two_sided = NaN(B, 2);
+ES_t                = NaN(B, 2);
+ES_p_one_sided      = NaN(B, 2);
+ES_p_two_sided      = NaN(B, 2);
+GARCH_pars          = NaN(B, 5);
+
+% Draw random numbers
+rng(1)
+z_sim = trnd(nu_true, H_mc, Msim) / sqrt(nu_true/(nu_true-2));
+
+for b = 1:B
+
+    % Simulate GARCH(1,1)-Normal
+    rng(b)
+    r_sim    = NaN(T_sim, 1);
+    h_sim    = NaN(T_sim, 1);
+    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
+    r_sim(1) = sqrt(h_sim(1)) * trnd(nu_true) / sqrt(nu_true/(nu_true-2));
+    for t = 2:T_sim
+        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 ...
+                   + beta_true*h_sim(t-1);
+        r_sim(t) = sqrt(h_sim(t))*trnd(nu_true)/sqrt(nu_true/(nu_true-2));
+    end
+
+    % Simulate VaR and ES 
+    [VaR, ES, EstPars] = simulate_var_es_univ(r_sim, alpha,'H', H_mc, ...
+                                           'M', Msim, 'dist', 't', ...
+                                           'WindLength', WindLength_mc, ...
+                                           'ReestFreq', reest_freq_mc, ...
+                                           'TruePars', true_vec, ...
+                                           'z_sim', z_sim);
+
+    % US and ES test
+    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, alpha(1), ...
+                                   10, WindLength_mc);
+    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, alpha(2), ...
+                                   10, WindLength_mc);
+
+    % Collect test results
+    GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
+                        mean(EstPars.GARCHpars(WindLength_mc+1:end,:)), ...
+                        mean(EstPars.margNu(WindLength_mc+1:end,:))];
+    UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
+    UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
+    UC_p_one_sided(b,:)      = [TestRes_0010.UC_p_one_sided,      TestRes_0025.UC_p_one_sided];
+    UC_p_two_sided(b,:)      = [TestRes_0010.UC_p_two_sided,      TestRes_0025.UC_p_two_sided];
+    UC_bern_p_one_sided(b,:) = [TestRes_0010.UC_bern_p_one_sided, TestRes_0025.UC_bern_p_one_sided];
+    UC_bern_p_two_sided(b,:) = [TestRes_0010.UC_bern_p_two_sided, TestRes_0025.UC_bern_p_two_sided];
+    ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
+    ES_p_one_sided(b,:)      = [TestRes_0010.ES_p_one_sided,      TestRes_0025.ES_p_one_sided];
+    ES_p_two_sided(b,:)      = [TestRes_0010.ES_p_two_sided,      TestRes_0025.ES_p_two_sided];
+
+    fprintf('Replication %d/%d done\n', b, B);
+
+end
+
+% Pack simulation results
+SimBacktest.UC_t                = UC_t;
+SimBacktest.UC_p_one_sided      = UC_p_one_sided;
+SimBacktest.UC_p_two_sided      = UC_p_two_sided;
+SimBacktest.UC_bern_t           = UC_bern_t;
+SimBacktest.UC_bern_p_one_sided = UC_bern_p_one_sided;
+SimBacktest.UC_bern_p_two_sided = UC_bern_p_two_sided;
+SimBacktest.ES_t                = ES_t;
+SimBacktest.ES_p_one_sided      = ES_p_one_sided;
+SimBacktest.ES_p_two_sided      = ES_p_two_sided;
+SimBacktest.GARCH_pars          = GARCH_pars;
+SimBacktest.B                   = B;
+SimBacktest.T_sim               = T_sim;
+SimBacktest.H_mc                = H_mc;
+SimBacktest.Msim                = Msim;
+SimBacktest.WindLength_mc       = WindLength_mc;
+SimBacktest.reest_freq_mc       = reest_freq_mc;
+SimBacktest.omega_true          = omega_true;
+SimBacktest.alpha_true          = alpha_true;
+SimBacktest.beta_true           = beta_true;
+SimBacktest.alpha               = alpha;
+
+filename = sprintf(['Output/SimBacktests/SimBacktest_TruePars_GARCHt_' ...
+                    'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
+save(filename, 'SimBacktest');
+fprintf('Results saved to %s\n', filename);
 

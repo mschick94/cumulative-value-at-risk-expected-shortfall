@@ -1,4 +1,4 @@
-function [VaR, ES] = simulate_var_es_univ(CopulaEst, Returns, alpha, varargin)
+function [VaR, ES, EstPars] = simulate_var_es_univ(Returns, alpha, varargin)
 %SIMULATE_VAR_ES_UNIV Fast simulation of H-step-ahead VaR and ES for
 % univariate GARCH models (K=1) with normal or t innovations.
 %
@@ -20,40 +20,136 @@ function [VaR, ES] = simulate_var_es_univ(CopulaEst, Returns, alpha, varargin)
 
 % Name-value inputs
 p = inputParser;
-addParameter(p, 'H', 10);
-addParameter(p, 'M', 25000);
+addParameter(p, 'H',          10);
+addParameter(p, 'M',          25000);
+addParameter(p, 'WindLength', 1000);
+addParameter(p, 'ReestFreq',  250);
+addParameter(p, 'TruePars',   []);
+addParameter(p, 'dist',       'norm');
+addParameter(p, 'z_sim',      []);
+
 parse(p, varargin{:});
-H = p.Results.H;
-M = p.Results.M;
-P = length(alpha);
+H        = p.Results.H;
+M        = p.Results.M;
+WinL     = p.Results.WindLength;
+ReFr     = p.Results.ReestFreq;
+TruePars = p.Results.TruePars;
+dist     = p.Results.dist;
+z_sim    = p.Results.z_sim;
+P        = length(alpha);
 
-% Read out marginal setting
-margDist  = CopulaEst.MargDist;
-GARCHpars = CopulaEst.GARCHpars;
-mu        = CopulaEst.mu;
-H_last    = CopulaEst.H_last;
-W         = CopulaEst.WindLength;
 T         = size(Returns, 1);
-t_start   = W + 1;
+t_start   = WinL + 1;
 
-% Distribution parameters
-switch margDist
-    case 't'
-        margNu = CopulaEst.nu;
-    otherwise
-        margNu = [];
-end
+%%% GARCH estimation
 
-% GARCHspec
-if contains(CopulaEst.model, 'GJR')
-    GARCHspec = 'gjr';
+% fmincon options
+options = optimoptions(@fmincon, 'Algorithm', 'sqp', 'Display', 'off');
+
+% Bounds on constraints
+epsi = 1e-10;
+
+% Pre-allocate
+GARCHpars = NaN(T, 3);
+H_last    = NaN(T, 1);
+margNu    = NaN(T, 1);
+mu        = zeros(T, 1);
+
+% Pre-compute re-estimation dates
+reest_dates = t_start:ReFr:T;
+
+if isempty(TruePars)
+    EstMean = true;    % estimate mu when estimating parameters
 else
-    GARCHspec = 'garch';
+    EstMean = false;   % mu=0 known when using true parameters
 end
 
-% Pre-draw standard normal random numbers
-rng(1)
-StdN = randn(H, M);   % (H x M) directly — no copula needed for K=1
+switch dist
+    case 'norm'
+        A          = [     0,      1,      1];
+        b          =  1-epsi;
+        lb         = [     0;      0;      0];
+        ub         = [   Inf; 1-epsi; 1-epsi];
+        start      = [  0.05,   0.05,    0.9];
+     
+        for i = reest_dates
+            r = Returns(i-WinL:i-1);
+            if isempty(TruePars)
+                ParsEst = fmincon(@(pars) ...
+                    VarianceModels.univ_garch(pars, r, EstMean), start, ...
+                    A, b, [], [], lb, ub, [], options); 
+            else
+                ParsEst = TruePars;
+            end
+            [~, HFilt, muEst] = VarianceModels.univ_garch(ParsEst, r, ...
+                                                                  EstMean);
+            
+            GARCHpars(i, 1:3) = ParsEst;
+            H_last(i)         = HFilt(end);
+            if isempty(muEst)
+                muEst = 0;
+            end
+            mu(i) = muEst;
+        end
+
+    case 't'
+        A          = [     0,      1,      1,    0];
+        b          =  1-epsi;
+        lb         = [     0;      0;      0;  2.2];
+        ub         = [   Inf; 1-epsi; 1-epsi; 1000];
+        start      = [  0.05,   0.05,    0.9,    5];       
+
+        for i = reest_dates
+            r = Returns(i-WinL:i-1);
+            if isempty(TruePars)
+                ParsEst = fmincon(@(pars) ...
+                    VarianceModels.univ_garch_t(pars, r, EstMean), start, ...
+                    A, b, [], [], lb, ub, [], options); 
+            else
+                ParsEst = TruePars;
+            end
+            [~, HFilt, muEst] = VarianceModels.univ_garch_t(ParsEst, r, ...
+                                                                  EstMean);
+            
+            GARCHpars(i, 1:3) = ParsEst(1:3);
+            H_last(i)         = HFilt(end);
+            margNu(i)         = ParsEst(4);
+            if isempty(muEst)
+                muEst = 0;
+            end
+            mu(i) = muEst;
+        end        
+end
+
+% Carry-forward between re-estimation dates
+for t = t_start:T
+    if mod(t - t_start, ReFr) ~= 0
+        GARCHpars(t, :) = GARCHpars(t-1, :);
+        margNu(t)       = margNu(t-1);
+        mu(t)           = mu(t-1);
+        omega           = GARCHpars(t, 1);
+        alpha_g         = GARCHpars(t, 2);
+        beta            = GARCHpars(t, 3);
+        eps2            = (Returns(t-1) - mu(t-1))^2; 
+        H_last(t)       = omega + alpha_g*eps2 + beta*H_last(t-1);
+    end
+end
+
+
+% Draw z_sim if not provided
+if isempty(z_sim)
+    rng(1)
+    switch dist
+        case 'norm'
+            z_sim = randn(H, M);
+        case 't'
+            if ~isempty(TruePars)
+                nu_fix = TruePars(4);
+                z_sim  = trnd(nu_fix, H, M) / sqrt(nu_fix/(nu_fix-2));
+            end
+            % if TruePars empty: z_sim stays empty, redrawn per t below
+    end
+end
 
 % Pre-allocate
 VaR = NaN(T, P);
@@ -61,16 +157,20 @@ ES  = NaN(T, P);
 
 for t = t_start:T
     % Get parameters
-    n_pars = size(GARCHpars, 2);
-    pars   = reshape(GARCHpars(t,:,1), 1, n_pars);
+    pars = GARCHpars(t,:,1);
 
-    % Map to marginal distribution
-    switch margDist
+    % Draw random numbers
+    switch dist
         case 'norm'
-            z_sim = StdN;   % already standard normal
+            z_t = z_sim;   % always fixed
         case 't'
-            nu_t  = margNu(t, 1);
-            z_sim = trnd(nu_t, H, M) / sqrt(nu_t/(nu_t-2));
+            if ~isempty(z_sim)
+                z_t = z_sim;
+            else
+                rng(1)
+                nu_t = margNu(t, 1);
+                z_t  = trnd(nu_t, H, M) / sqrt(nu_t/(nu_t-2));
+            end
     end
 
     % Simulate H-step ahead returns
@@ -80,7 +180,7 @@ for t = t_start:T
     h     = omega + alpha_g*(Returns(t-1,1) - mu(t,1))^2 + beta*H_last(t,1);
     r_sim = NaN(H, M);
     for j = 1:H
-        r_sim(j,:) = mu(t,1) + sqrt(h) .* z_sim(j,:);
+        r_sim(j,:) = mu(t,1) + sqrt(h) .* z_t(j,:);
         if j < H
             eps2 = (r_sim(j,:) - mu(t,1)).^2;
             h    = omega + alpha_g*eps2 + beta*h;
@@ -98,5 +198,10 @@ for t = t_start:T
         ES(t,pp)  = mean(sorted(1:idx));
     end
 end
+
+
+EstPars.GARCHpars = GARCHpars;
+EstPars.mu        = mu;
+EstPars.margNu    = margNu;
 
 end

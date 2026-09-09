@@ -686,8 +686,33 @@ classdef VarianceModels
         end
 
 
-        function [NegLL, H_t, SampleMean] = univ_heavy_r(pars, r, RVfilt, EstMean)
-        %KOMMENTARE
+        function [NegLL, H_t, SampleMean] = univ_heavy_r(pars, r, RV, ...
+                                                                   EstMean)
+        %UNIV_HEAVY_R Estimate the return equation of a univariate HEAVY 
+        % model with normal innovations
+        %
+        %   [NegLL, H_t, SampleMean] = UNIV_HEAVY_R(pars, r, RV) computes 
+        %   the negative log-likelihood and conditional variances of a 
+        %   univariate HEAVY process with normal innovations.
+        %
+        %   The conditional variance recursion is:
+        %       H_t = omega + alpha*RV_{t-1} + beta*H_{t-1}
+        %
+        %   INPUT:
+        %       pars : (3x1) parameter vector
+        %              pars(1) - omega (constant)
+        %              pars(2) - alpha (RV coefficient)
+        %              pars(3) - beta  (variance persistence)
+        %
+        %       r       : (Tx1) vector of returns
+        %       RV      : (Tx1) vector of realized variances
+        %       EstMean : if true, estimate sample mean of r (default)
+        %
+        %   OUTPUT:
+        %       NegLL      : Scalar, negative log-likelihood
+        %       H_t        : (Tx1) vector of conditional variances
+        %       SampleMean : Sample mean of returns
+        %
            
             % Optional estimation settings
             if nargin < 4
@@ -715,7 +740,7 @@ classdef VarianceModels
             
             % Recursion for conditional variances
             for i = 1:n-1
-                H_t(i+1) = alpha*RV(i)^2 + beta*RVfilt(i) + omega;
+                H_t(i+1) = alpha*RV(i) + beta*H_t(i) + omega;
             end
             
             % Log-likelihood contributions
@@ -732,6 +757,251 @@ classdef VarianceModels
         end
 
 
+        function [NegLL, H_t, SampleMean] = univ_heavy_r_t(pars, r, RV, ...
+                                                                   EstMean)
+        %UNIV_HEAVY_R_T Estimate the return equation of a univariate HEAVY 
+        % model with Student-t innovations
+        %
+        %   [NegLL, H_t, SampleMean] = UNIV_HEAVY_R_T(pars, r, RV) computes 
+        %   the negative log-likelihood and conditional variances of a 
+        %   univariate HEAVY process with Student-t innovations.
+        %
+        %   The conditional variance recursion is:
+        %       H_t = omega + alpha*RV_{t-1} + beta*H_{t-1}
+        %
+        %   INPUT:
+        %       pars : (4x1) parameter vector
+        %              pars(1) - omega (constant)
+        %              pars(2) - alpha (RV coefficient)
+        %              pars(3) - beta  (variance persistence)
+        %              pars(4) - nu    (degrees of freedom, nu > 2)
+        %
+        %       r       : (Tx1) vector of returns
+        %       RV      : (Tx1) vector of realized variances
+        %       EstMean : if true, estimate sample mean of r (default)
+        %
+        %   OUTPUT:
+        %       NegLL      : Scalar, negative log-likelihood
+        %       H_t        : (Tx1) vector of conditional variances
+        %       SampleMean : Sample mean of returns
+        %
+
+            % Optional estimation settings
+            if nargin < 4
+                EstMean = true;
+            end
+
+            % Estimate sample mean of r
+            if EstMean
+                SampleMean = mean(r);
+                r          = r - SampleMean;
+            else
+                SampleMean = [];
+            end
+
+            % Initialize
+            K = 1; 
+            omega = pars(1);
+            alpha = pars(2);
+            beta  = pars(3);
+            nu    = pars(4);
+            n     = size(r,1);
+            
+            % Unconditional variance initialization
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
+            H_t(1) = H_bar;
+            
+            % Recursion for conditional variances
+            for i = 1:n-1
+                H_t(i+1) = alpha*RV(i) + beta*H_t(i) + omega;
+            end
+            
+            % Log-likelihood contributions
+            ll = NaN(n,1);
+            for i = 2:n
+                ll(i) = gammaln( 0.5*(nu+K) ) - gammaln( 0.5*nu ) ...
+                        - (0.5*K) * log((nu-2)*pi) - 0.5 * log(H_t(i)) ...
+                        - 0.5*(nu+K) * log( 1 + (r(i)^2/H_t(i)) / (nu-2) );
+            end
+              
+            % Negative log-likelihood
+            ll(1) = [];
+            NegLL = -sum(ll);
+                
+        end
+
+
+        function [NegLL, H_t, SampleMean] = univ_heavy_r_skew_t(pars, ...
+                                                            r, RV, EstMean)
+        %UNIV_HEAVY_R_SKEW_T Estimate the return equation of a univariate 
+        % HEAVY model with Hansen skew-t innovations
+        %
+        %   [NegLL, H_t, SampleMean] = UNIV_HEAVY_R_SKEW_T(pars, r, RV) 
+        %   computes the negative log-likelihood and conditional variances 
+        %   of a univariate HEAVY process with Hansen skew-t innovations.
+        %
+        %   The conditional variance recursion is:
+        %       H_t = omega + alpha*RV_{t-1} + beta*H_{t-1}
+        %
+        %   INPUT:
+        %       pars : (5x1) parameter vector
+        %              pars(1) - omega  (constant)
+        %              pars(2) - alpha  (RV coefficient)
+        %              pars(3) - beta   (variance persistence)
+        %              pars(4) - lambda (skewness parameter, lambda in (-1,1))
+        %              pars(5) - nu     (degrees of freedom, nu > 2)
+        %
+        %       r       : (Tx1) vector of returns
+        %       RV      : (Tx1) vector of realized variances
+        %       EstMean : if true, estimate sample mean of r (default)
+        %
+        %   OUTPUT:
+        %       NegLL      : Scalar, negative log-likelihood
+        %       H_t        : (Tx1) vector of conditional variances
+        %       SampleMean : Sample mean of returns
+        %
+
+             % Optional estimation settings
+            if nargin < 4
+                EstMean = true;
+            end
+
+            % Estimate sample mean of r
+            if EstMean
+                SampleMean = mean(r);
+                r          = r - SampleMean;
+            else
+                SampleMean = [];
+            end       
+
+            % Initialize
+            omega  = pars(1);
+            alpha  = pars(2);
+            beta   = pars(3);
+            lambda = pars(4);
+            nu     = pars(5);
+            n      = size(r,1);
+            
+            % Unconditional variance initialization
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
+            H_t(1) = H_bar;
+            
+            % Recursion for conditional variances
+            for i = 1:n-1
+                H_t(i+1) = alpha*RV(i) + beta*H_t(i) + omega;
+            end
+            
+            % Hansen skew-t
+            log_c = gammaln(0.5*(nu+1)) - 0.5*log(pi*(nu-2)) ...
+                    - gammaln(0.5*nu);
+            c = exp(log_c);
+
+            a = 4*lambda*c * (nu-2) / (nu-1);
+            b = sqrt(1 + 3*lambda^2 - a^2);
+            log_b = log(b);
+
+            
+            % Threshold
+            x_star = -a / b;
+
+            % Log-likelihood contributions
+            ll = NaN(n,1);
+            for i = 2:n
+                
+                sigma_t = sqrt(H_t(i));
+                z = r(i) / sigma_t;
+                
+                if z < x_star
+                    ll(i) = log_b + log_c ...
+                            - 0.5*(nu+1) * log(1 + (1/(nu-2)) ...
+                            * ( (b*z + a)/(1-lambda) )^2) - log(sigma_t);
+                else
+                    ll(i) = log_b + log_c ...
+                            - 0.5*(nu+1) * log(1 + (1/(nu-2)) ...
+                            * ( (b*z + a)/(1+lambda) )^2) - log(sigma_t);
+                end
+            
+            end
+              
+            % Negative log-likelihood
+            ll(1) = [];
+            NegLL = -sum(ll);
+                
+        end
+
+
+        function [NegLL, H_t, SampleMean] = univ_heavy_r_laplace(pars, ...
+                                                            r, RV, EstMean)
+        %UNIV_HEAVY_R_LAPLACE Estimate the return equation of a univariate 
+        % HEAVY model with Laplace innovations
+        %
+        %   [NegLL, H_t, SampleMean] = UNIV_HEAVY_R_LAPLACE(pars, r, RV) 
+        %   computes the negative log-likelihood and conditional variances 
+        %   of a univariate HEAVY process with Laplace innovations.
+        %
+        %   The conditional variance recursion is:
+        %       H_t = omega + alpha*RV_{t-1} + beta*H_{t-1}
+        %
+        %   INPUT:
+        %       pars : (3x1) parameter vector
+        %              pars(1) - omega (constant)
+        %              pars(2) - alpha (RV coefficient)
+        %              pars(3) - beta  (variance persistence)
+        %
+        %       r       : (Tx1) vector of returns
+        %       RV      : (Tx1) vector of realized variances
+        %       EstMean : if true, estimate sample mean of r (default)
+        %
+        %   OUTPUT:
+        %       NegLL      : Scalar, negative log-likelihood
+        %       H_t        : (Tx1) vector of conditional variances
+        %       SampleMean : Sample mean of returns
+        %
+           
+            % Optional estimation settings
+            if nargin < 4
+                EstMean = true;
+            end
+
+            % Estimate sample mean of r
+            if EstMean
+                SampleMean = mean(r);
+                r          = r - SampleMean;
+            else
+                SampleMean = [];
+            end
+
+            % Initialize
+            K = 1; 
+            omega = pars(1);
+            alpha = pars(2);
+            beta  = pars(3);
+            n     = size(r,1);
+
+            % Unconditional variance initialization
+            H_bar  = r'*r/n;
+            H_t    = NaN(n,1);
+            H_t(1) = H_bar;
+            
+            % Recursion for conditional variances
+            for i = 1:n-1
+                H_t(i+1) = alpha*RV(i) + beta*H_t(i) + omega;
+            end
+            
+            % Log-likelihood contributions
+            ll = NaN(n,1);
+            for i = 2:n
+                ll(i) = - K/2 * log(2) - sqrt(2)*abs(r(i))/sqrt(H_t(i)) ...
+                        - 0.5 * log(H_t(i));
+            end
+              
+            % Negative log-likelihood
+            ll(1) = [];
+            NegLL = -sum(ll);
+                
+        end
 
 
     end

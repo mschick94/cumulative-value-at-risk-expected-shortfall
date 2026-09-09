@@ -143,41 +143,38 @@ classdef RiskSim
 
             % Pre-specify matrices
             r_sim = NaN(H, M);  % simulated returns
-            h_sim = NaN(H, M);  % simulated variances
+            % h_sim = NaN(H, M);  % simulated variances
             
             % Iteration over GARCH model
             if strcmp(model, 'garch')
                 % Initialize h_{t+1}
-                h_1 = omega + alpha*(r_last-mu)^2 + beta*h_last;
-                h_sim(1, :) = h_1;
+                h = omega + alpha*(r_last-mu)^2 + beta*h_last;
+                % h_sim(1, :) = h_1;
                 
                 % Simulate M Paths of r_{t+j} and h_{t+j} for j = 1, ..., H
                 for j = 1:H
-                    r_sim(j,:) = mu + sqrt(h_sim(j,:)) .* z(j,:);
+                    % r_sim(j,:) = mu + sqrt(h_sim(j,:)) .* z(j,:);
+                    r_sim(j,:) = mu + sqrt(h) .* z(j,:);
                     if j < H
                         eps2 = (r_sim(j,:) - mu).^2;
-                        h_sim(j+1,:) = omega + alpha*eps2 ...
-                                       + beta*h_sim(j,:);
+                        h    = omega + alpha*eps2 + beta*h;
                     end
                 end
 
             % Iteration over GJR-GARCH model    
             elseif strcmp(model, 'gjr')
                 % Initialize h_{t+1}
-                eps = r_last-mu;
+                eps = r_last - mu;
                 I   = eps < 0;
-                h_1 = omega + (alpha + I*gamma)*eps^2 + beta*h_last;
-                h_sim(1, :) = h_1;
+                h   = omega + (alpha + I*gamma)*eps^2 + beta*h_last;
                 
                 % Simulate M Paths of r_{t+j} and h_{t+j} for j = 1, ..., H
                 for j = 1:H
-                    r_sim(j,:) = mu + sqrt(h_sim(j,:)) .* z(j,:);
+                    r_sim(j,:) = mu + sqrt(h) .* z(j,:);
                     if j < H
                         eps = r_sim(j,:) - mu;
                         I   = eps < 0;
-                        h_sim(j+1,:) = omega ...
-                                       + (alpha + I*gamma).*eps.^2 ...
-                                       + beta*h_sim(j,:);
+                        h   = omega + (alpha + I.*gamma).*eps.^2 + beta*h;
                     end
                 end
             end
@@ -189,12 +186,12 @@ classdef RiskSim
             VaR = NaN(H, 1);
             ES  = NaN(H, 1);
             
-            for h = 1:H
-                sorted = sort(R_cum(h, :));        % sort ascending
-                idx    = max(1, floor(conf * M));  % left tail index
-                VaR(h) = sorted(idx);              % VaR(0.01)
-                ES(h)  = mean(sorted(1:idx));      % ES
-            end
+            % for h = 1:H
+            %     sorted = sort(R_cum(h, :));        % sort ascending
+            %     idx    = max(1, floor(conf * M));  % left tail index
+            %     VaR(h) = sorted(idx);              % VaR(0.01)
+            %     ES(h)  = mean(sorted(1:idx));      % ES
+            % end
    
         end
 

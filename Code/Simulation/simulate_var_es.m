@@ -115,6 +115,9 @@ Rmat = CopulaEst.Rmat;
 [~, K, T] = size(Rmat);
 t_start   = W + 1;
 
+% Save caller's random stream state
+stream_state = rng;
+
 % Draw standard normal random numbers — shared across all t
 if p.Results.SetSeed
     rng(1)
@@ -151,8 +154,8 @@ end
 
 % Pre-allocate VaR and ES only
 P = length(alpha);
-VaR = NaN(T, H, P);
-ES  = NaN(T, H, P);
+VaR = NaN(T, 1, P); % NaN(T, H, P); if all h=1:H needed 
+ES  = NaN(T, 1, P); % NaN(T, 1, P); Computationally more costly!
 
 if num_workers > 1
     parfor t = t_start:T
@@ -162,17 +165,27 @@ if num_workers > 1
             StdRes_t, margDist, margNu, margLambda, GARCHpars, Returns, ...
             H_last, mu, GARCHspec);
 
-        % Aggregate to portfolio (H x M)
-        PFRet_t = reshape(sum(Rsim_t.*reshape(PFweights,1,1,K), 3), H, M);
+        % % Aggregate to portfolio (H x M)  and compute VaR and ES
+        % PFRet_t = reshape(sum(Rsim_t.*reshape(PFweights,1,1,K), 3), H, M);
+        % sorted   = sort(PFRet_t, 2);
+        % alpha_local = alpha;
+        % for p = 1:P
+        %     idx         = max(1, floor(alpha_local(p) * M));
+        %     VaR(t,:,p)  = sorted(:, idx);
+        %     ES(t,:,p)   = mean(sorted(:, 1:idx), 2);
+        % end
 
+        % Only compute portfolio return at h=H
+        PFRet_H  = squeeze(sum(Rsim_t(H,:,:).*reshape(PFweights,1,1,K),3));
+        
         % Sort and compute VaR/ES per horizon
-        sorted   = sort(PFRet_t, 2);
-        alpha_local = alpha;
+        sorted_H = sort(PFRet_H);
         for p = 1:P
-            idx         = max(1, floor(alpha_local(p) * M));
-            VaR(t,:,p)  = sorted(:, idx);
-            ES(t,:,p)   = mean(sorted(:, 1:idx), 2);
+            idx        = max(1, floor(alpha_local(p) * M));
+            VaR(t,1,p) = sorted_H(idx);
+            ES(t,1,p)  = mean(sorted_H(1:idx));
         end
+
     end
 else
     for t = t_start:T
@@ -180,19 +193,33 @@ else
             Rmat, DCCpars, Rbar, Qmat, CopNu, StdN, empiricalPITs, ...
             StdRes_t, margDist, margNu, margLambda, GARCHpars, Returns, ...
             H_last, mu, GARCHspec);
-        PFRet_t  = reshape(sum(Rsim_t.*reshape(PFweights,1,1,K), 3), H, M);
-        sorted = sort(PFRet_t, 2);
+
+        % % Aggregate to portfolio (H x M) and compute VaR and ES
+        % PFRet_t  = reshape(sum(Rsim_t.*reshape(PFweights,1,1,K), 3), H, M);
+        % sorted = sort(PFRet_t, 2);
+        % for p = 1:P
+        %     idx         = max(1, floor(alpha(p) * M));
+        %     VaR(t,:,p)  = sorted(:, idx);
+        %     ES(t,:,p)   = mean(sorted(:, 1:idx), 2);
+        % end
+
+        % Only compute portfolio return at h=H
+        PFRet_H  = squeeze(sum(Rsim_t(H,:,:).*reshape(PFweights,1,1,K),3));
+        
+        % Sort and compute VaR/ES per horizon
+        sorted_H = sort(PFRet_H);
         for p = 1:P
-            idx         = max(1, floor(alpha(p) * M));
-            VaR(t,:,p)  = sorted(:, idx);
-            ES(t,:,p)   = mean(sorted(:, 1:idx), 2);
+            idx        = max(1, floor(alpha(p) * M));
+            VaR(t,1,p) = sorted_H(idx);
+            ES(t,1,p)  = mean(sorted_H(1:idx));
         end
+
     end
 end
 
 % Pack VaRESOut
-VaRESOut.VaR           = reshape(VaR, T, 1, H, P);
-VaRESOut.ES            = reshape(ES, T, 1, H, P); 
+VaRESOut.VaR           = reshape(VaR, T, 1, 1, P); %reshape(VaR, T, 1, H, P);
+VaRESOut.ES            = reshape(ES, T, 1, 1, P); 
 VaRESOut.alpha         = alpha;
 VaRESOut.H             = H;
 VaRESOut.M             = M;
@@ -208,6 +235,10 @@ VaRESOut.PFweights     = PFweights;
 VaRESOut.WindLength    = W;
 VaRESOut.ReestFreq     = ReestFreq;
 
+
+% Restore caller's random stream state
+rng(stream_state);
+
 end
 
 
@@ -218,61 +249,65 @@ function Rsim_t = simulate_one_t(t, H, M, K, CorrModel, CopulaDist, ...
     GARCHspec)
 
 % Simulate uniforms from copula
-switch CorrModel
-    case 'CCC'
-        switch CopulaDist
-            case 'norm'
-                u_sim = RiskSim.simulateCopulaCCC(Rmat(:,:,t), H, ...
-                    M, K, 'StdNormDraws', StdN);
-            case 't'
-                rng(1)
-                nuCopula = CopNu(t,1);
-                invGamma = sqrt(nuCopula ./ ...
-                                (2.*randg(nuCopula./2, H, M, 1)));
-                u_sim    = RiskSim.simulateCopulaCCC(Rmat(:,:,t), ...
-                    H, M, K, 'StdNormDraws', StdN, ...
-                    'invGamma', invGamma);
-        end
-    case 'DCC'
-        parsDCC    = DCCpars(t,:);
-        R_dcc_bar  = Rbar(:,:,t);
-        R_dcc_last = Rmat(:,:,t);
-        Q_dcc_last = Qmat(:,:,t);
-        switch CopulaDist
-            case 'norm'
-                u_sim = RiskSim.simulateCopulaDCC(parsDCC, ...
-                    R_dcc_bar, R_dcc_last, Q_dcc_last, H, M, K, ...
-                    'dist', 'norm', 'StdNormDraws', StdN);
-            case 't'
-                rng(1)
-                nuCopula = CopNu(t,1);
-                invGamma = sqrt(nuCopula ./ ...
-                                (2.*randg(nuCopula./2, H, M, 1)));
-                u_sim    = RiskSim.simulateCopulaDCC(parsDCC, ...
-                    R_dcc_bar, R_dcc_last, Q_dcc_last, H, M, K, ...
-                    'dist', 't', 'nu', nuCopula, ...
-                    'StdNormDraws', StdN, 'invGamma', invGamma);
-        end
-end
-
-% Map uniform draws to marginals
-if empiricalPITs
-    z_sim = CopulaModel.quantileTransform(u_sim, ...
-        'dist', 'empirical', 'std_res', StdRes_t(:,:,t));
+if K == 1 && strcmp(margDist, 'norm')
+    z_sim = reshape(squeeze(StdN), H, M, 1);
 else
-    switch margDist
-        case 'norm'
-            z_sim = CopulaModel.quantileTransform(u_sim);
-        case 't'
-            z_sim = CopulaModel.quantileTransform(u_sim, ...
-                'dist', 't', 'nu', margNu(t,:));
-        case 'skewt'
-            z_sim = CopulaModel.quantileTransform(u_sim, ...
-                'dist', 'skewt', 'nu', margNu(t,:), ...
-                'lambda', margLambda(t,:));
-        case 'laplace'
-            z_sim = CopulaModel.quantileTransform(u_sim, ...
-                'dist', 'laplace');
+    switch CorrModel
+        case 'CCC'
+            switch CopulaDist
+                case 'norm'
+                    u_sim = RiskSim.simulateCopulaCCC(Rmat(:,:,t), H, ...
+                        M, K, 'StdNormDraws', StdN);
+                case 't'
+                    rng(1)
+                    nuCopula = CopNu(t,1);
+                    invGamma = sqrt(nuCopula ./ ...
+                                    (2.*randg(nuCopula./2, H, M, 1)));
+                    u_sim    = RiskSim.simulateCopulaCCC(Rmat(:,:,t), ...
+                        H, M, K, 'StdNormDraws', StdN, ...
+                        'invGamma', invGamma);
+            end
+        case 'DCC'
+            parsDCC    = DCCpars(t,:);
+            R_dcc_bar  = Rbar(:,:,t);
+            R_dcc_last = Rmat(:,:,t);
+            Q_dcc_last = Qmat(:,:,t);
+            switch CopulaDist
+                case 'norm'
+                    u_sim = RiskSim.simulateCopulaDCC(parsDCC, ...
+                        R_dcc_bar, R_dcc_last, Q_dcc_last, H, M, K, ...
+                        'dist', 'norm', 'StdNormDraws', StdN);
+                case 't'
+                    rng(1)
+                    nuCopula = CopNu(t,1);
+                    invGamma = sqrt(nuCopula ./ ...
+                                    (2.*randg(nuCopula./2, H, M, 1)));
+                    u_sim    = RiskSim.simulateCopulaDCC(parsDCC, ...
+                        R_dcc_bar, R_dcc_last, Q_dcc_last, H, M, K, ...
+                        'dist', 't', 'nu', nuCopula, ...
+                        'StdNormDraws', StdN, 'invGamma', invGamma);
+            end
+    end
+    
+    % Map uniform draws to marginals
+    if empiricalPITs
+        z_sim = CopulaModel.quantileTransform(u_sim, ...
+            'dist', 'empirical', 'std_res', StdRes_t(:,:,t));
+    else
+        switch margDist
+            case 'norm'
+                z_sim = CopulaModel.quantileTransform(u_sim);
+            case 't'
+                z_sim = CopulaModel.quantileTransform(u_sim, ...
+                    'dist', 't', 'nu', margNu(t,:));
+            case 'skewt'
+                z_sim = CopulaModel.quantileTransform(u_sim, ...
+                    'dist', 'skewt', 'nu', margNu(t,:), ...
+                    'lambda', margLambda(t,:));
+            case 'laplace'
+                z_sim = CopulaModel.quantileTransform(u_sim, ...
+                    'dist', 'laplace');
+        end
     end
 end
 
@@ -286,7 +321,7 @@ for k = 1:K
                                           Returns(t-1,k), ...
                                           H_last(t,k), mu(t,k), ...
                                           'z', z_sim(:,:,k), ...
-                                          'model', GARCHspec);
+                                          'model', GARCHspec);   
 end
 
 end

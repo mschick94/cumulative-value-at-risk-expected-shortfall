@@ -1,7 +1,7 @@
 function VaRESOut = simulate_var_es(CopulaEst, Returns, PFweights, ...
                                     alpha, varargin)
 %SIMULATE_VAR_ES Rolling-window simulation of H-step-ahead cumulative
-% portfolio VaR and ES using a GARCH-copula model.
+% portfolio VaR and ES using a GARCH/HEAVY-copula model.
 %
 %   VaRESOut = SIMULATE_VAR_ES(CopulaEst, Returns, PFweights, alpha)
 %   simulates H-step-ahead cumulative returns and computes portfolio VaR
@@ -56,10 +56,12 @@ addParameter(p, 'H',          10);
 addParameter(p, 'M',          1000);
 addParameter(p, 'NumWorkers', 1);
 addParameter(p, 'SetSeed',    true);
+addParameter(p, 'RV',         []);
 parse(p, varargin{:});
 
 H           = p.Results.H;
 M           = p.Results.M;
+RV          = p.Results.RV;
 num_workers = p.Results.NumWorkers;
 
 % Transform weight vector to row vector
@@ -76,10 +78,21 @@ CopulaDist = CopulaEst.CopulaDist;
 CorrModel  = CopulaEst.CorrModel;
 
 % Read out Marginal setting
-Model         = CopulaEst.model;
+Model = CopulaEst.model;
+if contains(Model, 'HEAVY')
+    GARCHspec = 'heavy';
+    GARCHpars.HEAVY_r_pars  = CopulaEst.HEAVY_r_pars;
+    GARCHpars.HEAVY_RV_pars = CopulaEst.HEAVY_RV_pars;
+    GARCHpars.Tau_last      = CopulaEst.Tau_last;
+elseif contains(Model, 'GJR')
+    GARCHspec = 'gjr';
+    GARCHpars = CopulaEst.GARCHpars;
+else
+    GARCHspec = 'garch';
+    GARCHpars = CopulaEst.GARCHpars;
+end
 margDist      = CopulaEst.MargDist;
 empiricalPITs = CopulaEst.EmpiricalPits;
-GARCHpars     = CopulaEst.GARCHpars;
 mu            = CopulaEst.mu;
 H_last        = CopulaEst.H_last;
 
@@ -100,12 +113,6 @@ switch margDist
     otherwise
         margNu     = [];
         margLambda = [];
-end
-
-if contains(Model, 'GJR')
-    GARCHspec = 'gjr';
-else
-    GARCHspec = 'garch';
 end
 
 % Read out correlation matrix parameters
@@ -163,7 +170,7 @@ if num_workers > 1
         Rsim_t = simulate_one_t(t, H, M, K, CorrModel, CopulaDist, ...
             Rmat, DCCpars, Rbar, Qmat, CopNu, StdN, empiricalPITs, ...
             StdRes_t, margDist, margNu, margLambda, GARCHpars, Returns, ...
-            H_last, mu, GARCHspec);
+            H_last, mu, GARCHspec, RV);
 
         % % Aggregate to portfolio (H x M)  and compute VaR and ES
         % PFRet_t = reshape(sum(Rsim_t.*reshape(PFweights,1,1,K), 3), H, M);
@@ -193,7 +200,7 @@ else
         Rsim_t   = simulate_one_t(t, H, M, K, CorrModel, CopulaDist, ...
             Rmat, DCCpars, Rbar, Qmat, CopNu, StdN, empiricalPITs, ...
             StdRes_t, margDist, margNu, margLambda, GARCHpars, Returns, ...
-            H_last, mu, GARCHspec);
+            H_last, mu, GARCHspec, RV);
 
         % % Aggregate to portfolio (H x M) and compute VaR and ES
         % PFRet_t  = reshape(sum(Rsim_t.*reshape(PFweights,1,1,K), 3), H, M);
@@ -247,7 +254,13 @@ end
 function Rsim_t = simulate_one_t(t, H, M, K, CorrModel, CopulaDist, ...
     Rmat, DCCpars, Rbar, Qmat, CopNu, StdN, empiricalPITs, StdRes_t, ...
     margDist, margNu, margLambda, GARCHpars, Returns, H_last, mu, ...
-    GARCHspec)
+    GARCHspec, RV)
+
+% For simulation with K = 1, HEAVY-Model not implemented so far
+if K == 1 && strcmp(GARCHspec, 'heavy')
+    error(['simulate_one_t: HEAVY model requires K>1. Use ' ...
+           'hStepSimHeavy directly for K=1']);
+end
 
 % Simulate uniforms from copula
 if K == 1 && strcmp(margDist, 'norm')
@@ -313,16 +326,31 @@ else
 end
 
 % Simulate cumulative h-step ahead returns for each asset
-n_pars      = size(GARCHpars, 2);
-garch_param = reshape(GARCHpars(t,:,:), n_pars, K)';
-Rsim_t      = NaN(H, M, K);
-for k = 1:K
-    pars          = garch_param(k,:);
-    Rsim_t(:,:,k) = RiskSim.hStepSimGarch(pars, H, M, ...
-                                          Returns(t-1,k), ...
-                                          H_last(t,k), mu(t,k), ...
-                                          'z', z_sim(:,:,k), ...
-                                          'model', GARCHspec);   
+Rsim_t = NaN(H, M, K);
+
+if strcmp(GARCHspec, 'heavy')
+    % HEAVY simulation
+    for k = 1:K
+        pars_r   = reshape(GARCHpars.HEAVY_r_pars(t,:,k),  1, []);
+        pars_rv  = reshape(GARCHpars.HEAVY_RV_pars(t,:,k), 1, []);
+        Tau_last = GARCHpars.Tau_last;
+        Rsim_t(:,:,k) = RiskSim.hStepSimHeavy(pars_r, pars_rv, H, M, ...
+                                            RV(t-1,k), H_last(t,k), ...
+                                            Tau_last(t,k), mu(t,k), ...
+                                            'z', z_sim(:,:,k));
+    end
+else
+    % GARCH/GJR simulation
+    n_pars      = size(GARCHpars, 2);
+    garch_param = reshape(GARCHpars(t,:,:), n_pars, K)';
+    for k = 1:K
+        pars          = garch_param(k,:);
+        Rsim_t(:,:,k) = RiskSim.hStepSimGarch(pars, H, M, ...
+                                              Returns(t-1,k), ...
+                                              H_last(t,k), mu(t,k), ...
+                                              'z', z_sim(:,:,k), ...
+                                              'model', GARCHspec);
+    end
 end
 
 end

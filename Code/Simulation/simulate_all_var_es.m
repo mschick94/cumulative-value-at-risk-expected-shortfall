@@ -1,5 +1,5 @@
-function VaRESOut = simulate_all_var_es(EstOut, R, PFweights, alpha, ...
-                                        varargin)
+function VaRESOut = simulate_all_var_es(EstOut, R, PFweights, ...
+                                        alpha, varargin)
 %SIMULATE_ALL_VAR_ES Compute portfolio VaR and ES for all models contained
 % in EstOut by calling simulate_var_es for each model specification.
 %
@@ -17,6 +17,11 @@ function VaRESOut = simulate_all_var_es(EstOut, R, PFweights, alpha, ...
 %       alpha     : p-vector, significance levels e.g. 0.025 for 97.5% VaR
 %
 %   INPUTS (optional name-value):
+%       RV           : (Tx(K*(K+1)/2)) matrix of realized variances in vech
+%                      format. Required when EstOut contains HEAVY models.
+%                      Diagonal elements (realized variances per asset) are
+%                      extracted internally. Pass [] for GARCH/GJR models
+%                      (default: [])
 %       'H'          : Scalar, simulation horizon in days (default: 10)
 %       'M'          : Scalar, number of simulation paths (default: 1000)
 %       'NumWorkers' : Scalar, number of parallel workers (default: 1)
@@ -48,6 +53,7 @@ function VaRESOut = simulate_all_var_es(EstOut, R, PFweights, alpha, ...
 % In inputParser
 p = inputParser;
 p.KeepUnmatched = true;
+addParameter(p, 'RV',         []);
 addParameter(p, 'OutputName', 'EquallyWeighted');
 parse(p, varargin{:});
 OutputName = p.Results.OutputName;
@@ -95,7 +101,7 @@ for m = 1:J
     end
     VaRESOut.VaR(:, j, :, :) = result.VaR(:, 1, :, :);
     VaRESOut.ES(:, j, :, :)  = result.ES(:, 1, :, :);
-    VaRESOut.Models{j}    = model_name;
+    VaRESOut.Models{j, 1}    = model_name;
 
     save('Output/VaRandES/checkpoint.mat', 'VaRESOut');
     fprintf('Model %d/%d done: %s\n', j, J, model_name);

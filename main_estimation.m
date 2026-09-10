@@ -50,7 +50,7 @@ MarginalModels = {'GARCH_norm', 'GARCH_t', 'GARCH_skewt', ...
                   'GARCH_laplace', 'RiskMetrics_GARCH_norm', ...
                   'GJRGARCH_norm', 'GJRGARCH_t', 'GJRGARCH_skewt', ...
                   'GJRGARCH_laplace', ...
-                  'HEAVY_norm'}; % Add marginal models here
+                  'HEAVY_norm', 'HEAVY_laplace'}; % Add marginal models here
 
 % Specify models depending on copula specifications estimated previously
 CopulaModels = {'CCC_norm', 'CCC_t', 'CCC_norm_empirical', ...
@@ -124,7 +124,7 @@ estimate_heavy(R, RV, 'dist', 'laplace', 'WindLength', WindLength, ...
 
 
 %% Rolling-window estimation of the copula
-clearvars -except R assets weightMat NumberWorkers dates Hsim Msim ...
+clearvars -except R RV assets weightMat NumberWorkers dates Hsim Msim ...
                   MarginalModels CopulaModels
 
 % Load all combinations of univariate variance models and assets
@@ -238,9 +238,22 @@ estimate_copula(EstOut.GJRGARCH_norm, 'copula_dist', 'norm', ...
 
 
 
+%%%% HEAVY-model with various distributions and Gaussian CCC Copula
+
+% HEAVY-Laplace
+estimate_copula(EstOut.HEAVY_laplace, 'copula_dist', 'norm', ...
+                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
+
+% HEAVY-Empirical
+estimate_copula(EstOut.HEAVY_norm, 'copula_dist', 'norm', ...
+                'corr_model', 'CCC', 'empirical_pits', true, ...
+                'NumWorkers', NumberWorkers);
+
+
+
 %% Simulation of H-step ahead portfolio VaR and ES from copula models
-clearvars -except R assets MarginalModels weightMat NumberWorkers dates ...
-                  EstOut Hsim Msim MarginalModels CopulaModels
+clearvars -except R RV assets MarginalModels weightMat NumberWorkers ...
+                  dates Hsim Msim MarginalModels CopulaModels
 
 % Load all combinations of variance models, assets, and copulas
 EstOut = read_copula_est_results(MarginalModels,CopulaModels,assets);
@@ -252,6 +265,7 @@ alpha = [0.01, 0.025];
 VaRandES = simulate_all_var_es(EstOut, R, weightMat, alpha, ...
                                'H', Hsim, 'M', Msim, ...
                                'NumWorkers', NumberWorkers, ...
+                               'RV', RV, ...
                                'OutputName', 'EquallyWeighted');
 
 
@@ -711,3 +725,386 @@ filename = sprintf(['Output/SimBacktests/SimBacktest_TruePars_GARCHt_' ...
 save(filename, 'SimBacktest');
 fprintf('Results saved to %s\n', filename);
 
+
+load('Output/SimBacktests/SimBacktest_TruePars_GARCHt_B500_T5000_H10_M25000.mat')
+
+mean(SimBacktest.UC_p_one_sided < 0.05)
+mean(SimBacktest.UC_p_two_sided < 0.05)
+
+mean(SimBacktest.UC_bern_p_one_sided < 0.05)
+mean(SimBacktest.UC_bern_p_two_sided < 0.05)
+
+mean(SimBacktest.ES_p_one_sided < 0.05)
+mean(SimBacktest.ES_p_two_sided < 0.05)
+
+figure
+histogram(SimBacktest.UC_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('1% UC t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+figure
+histogram(SimBacktest.UC_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('2.5% UC t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+figure
+histogram(SimBacktest.UC_bern_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('1% UC-Bernoulli t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+figure
+histogram(SimBacktest.UC_bern_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('2.5% UC-Bernoulli t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+
+figure
+histogram(SimBacktest.ES_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('1% ES t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+figure
+histogram(SimBacktest.ES_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('2.5% ES t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+
+
+%%
+
+% figure
+% histogram(tstat_uc(1:b), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('UC test t-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+
+
+
+
+
+
+%% Monte Carlo size check for backtesting functions - 1-day-ahead
+T_sim      = 5000;
+omega_true = 0.02;
+alpha_true = 0.05;
+beta_true  = 0.93;
+mu_true    = 0;
+
+% Settings
+WindLength_mc = 1000;
+reest_freq_mc = 21;
+assets_mc     = {'SimAsset'};
+dates_mc      = (1:T_sim)';
+alpha_mc      = 0.025;
+B             = 500;
+
+% Pre-allocate
+pValues_UC     = NaN(B, 1);
+pValues_UC_bin = NaN(B, 1);
+pValues_DQ     = NaN(B, 1);
+pValues_ES     = NaN(B, 1);
+tstat_uc       = NaN(B, 1);
+
+for b = 1:B
+    rng(b)
+
+    % Simulate GARCH(1,1)-Normal
+    r_sim    = NaN(T_sim, 1);
+    h_sim    = NaN(T_sim, 1);
+    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
+    r_sim(1) = sqrt(h_sim(1)) * randn;
+    for t = 2:T_sim
+        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 + beta_true*h_sim(t-1);
+        r_sim(t) = sqrt(h_sim(t)) * randn;
+    end
+
+    % Analytical VaR and ES using true parameters — no simulation needed
+    VaR_true = norminv(alpha_mc) * sqrt(h_sim);
+    ES_true  = -normpdf(norminv(alpha_mc)) / alpha_mc * sqrt(h_sim);
+
+    % Build VaRandES_mc struct
+    VaRandES_mc.VaR        = VaR_true;
+    VaRandES_mc.ES         = ES_true;
+    VaRandES_mc.alpha      = alpha_mc;
+    VaRandES_mc.H          = 1;
+    VaRandES_mc.M          = NaN;
+    VaRandES_mc.Models     = {'SimAsset'};
+    VaRandES_mc.assets     = {'SimAsset'};
+    VaRandES_mc.dates      = dates_mc;
+    VaRandES_mc.PFweights  = 1;
+    VaRandES_mc.WindLength = WindLength_mc;
+    VaRandES_mc.ReestFreq  = reest_freq_mc;
+
+    % Collect p-values
+    [pUC, pDQ, pES, pUCbinomial, tuc] = var_uc_test(VaRandES_mc, r_sim);
+    pValues_UC(b)     = pUC;
+    pValues_UC_bin(b) = pUCbinomial;
+    pValues_DQ(b)     = pDQ;
+    pValues_ES(b)     = pES;
+    tstat_uc(b)       = tuc;
+
+    fprintf('Replication %d/%d done\n', b, B);
+    fprintf('UC test size:     %.3f\n', mean(pValues_UC(1:b)     < 0.05));
+    fprintf('UC Bin test size: %.3f\n', mean(pValues_UC_bin(1:b) < 0.05));
+    fprintf('DQ test size:     %.3f\n', mean(pValues_DQ(1:b)     < 0.05));
+    fprintf('ES test size:     %.3f\n', mean(pValues_ES(1:b)     < 0.05));
+end
+
+% Final empirical size
+fprintf('UC test size:     %.3f\n', mean(pValues_UC     < 0.05));
+fprintf('UC Bin test size: %.3f\n', mean(pValues_UC_bin < 0.05));
+fprintf('DQ test size:     %.3f\n', mean(pValues_DQ     < 0.05));
+fprintf('ES test size:     %.3f\n', mean(pValues_ES     < 0.05));
+
+% Plot t-stat distribution
+figure
+histogram(tstat_uc(1:b), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('UC test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+
+
+
+% % Insert DCC result at position j=X
+% j_insert = X;
+% 
+% % Shift existing models from j=15 onwards to j=16 onwards
+% VaRandES.VaR    = cat(2, VaRandES.VaR(:,1:j_insert-1,:,:), ...
+%                           VaRESOut.VaR, ...
+%                           VaRandES.VaR(:,j_insert:end,:,:));
+% VaRandES.ES     = cat(2, VaRandES.ES(:,1:j_insert-1,:,:), ...
+%                           VaRESOut.ES, ...
+%                           VaRandES.ES(:,j_insert:end,:,:));
+% VaRandES.Models = [VaRandES.Models(1:j_insert-1), ...
+%                    {'GJRGARCH_norm_DCC_norm_empirical'}, ...
+%                    VaRandES.Models(j_insert:end)];
+
+
+% new=load('C:\Users\Schick\Documents\Forschung\8_Portfolio_Var_ES_hstep\Output\SimBacktests\checkpoint_simbacktest481_500.mat');
+% old=load('C:\Users\Schick\Documents\Forschung\8_Portfolio_Var_ES_hstep\Output\SimBacktests\checkpoint_simbacktest480repMerge.mat');
+% 
+% merge = new;
+% merge.pValues_DQ(1:480,:) = old.pValues_DQ(1:480,:);
+% merge.pValues_DQ_sub(1:480,:) = old.pValues_DQ_sub(1:480,:);
+% merge.pValues_UC_bin(1:480,:) = old.pValues_UC_bin(1:480,:);
+% merge.pValues_UC_bin_sub(1:480,:) = old.pValues_UC_bin_sub(1:480,:);
+% merge.tValues_ES(1:480,:) = old.tValues_ES(1:480,:);
+% merge.tValues_ES_sub(1:480,:) = old.tValues_ES_sub(1:480,:);
+% merge.tValues_UC(1:480,:) = old.tValues_UC(1:480,:);
+% merge.tValues_UC_sub(1:480,:) = old.tValues_UC_sub(1:480,:);
+% 
+% 
+% pValues_DQ = merge.pValues_DQ;
+% pValues_DQ_sub = merge.pValues_DQ_sub;
+% pValues_UC_bin= merge.pValues_UC_bin;
+% pValues_UC_bin_sub = merge.pValues_UC_bin_sub;
+% tValues_ES = merge.tValues_ES;
+% tValues_ES_sub = merge.tValues_ES_sub;
+% tValues_UC = merge.tValues_UC;
+% tValues_UC_sub = merge.tValues_UC_sub;
+
+
+%%  UC test two sided
+load('C:\Users\Schick\Documents\Forschung\8_Portfolio_Var_ES_hstep\Output\SimBacktests\SimBacktest_B500_T5000_H10_M25000.mat')
+t = SimBacktest.tValues_UC;
+tsub = SimBacktest.tValues_UC_sub;
+
+% UC no subsampling alpha = 0.01
+figure
+histogram(t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('UC test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+mean(abs(t(:,1)) >=1.96, 'omitnan')
+
+
+% UC no subsampling alpha = 0.025
+figure
+histogram(t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('UC test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+mean(abs(t(:,2)) >=1.96, 'omitnan')
+
+
+% UC subsampling alpha = 0.01 - Not enough violations!!!!!!!!!!!!!!
+figure
+histogram(max(min(10,tsub(:,1)),-10), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('UC test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+mean(abs(tsub(:,1)) >=1.96, 'omitnan')
+
+
+% UC subsampling alpha = 0.025
+figure
+histogram(tsub(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('UC test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+mean(abs(tsub(:,2)) >=1.96, 'omitnan')
+
+
+%% UC binomial test
+
+p = SimBacktest.pValues_UC_bin;
+psub = SimBacktest.pValues_UC_bin_sub;
+
+% UC w and w/o subsampling alpha = 0.01
+mean(p(:,1) < 0.05, 'omitnan')
+mean(psub(:,1) < 0.05, 'omitnan')
+
+% UC w and w/o subsampling alpha = 0.025
+mean(p(:,2) < 0.05, 'omitnan')
+mean(psub(:,2) < 0.05, 'omitnan')
+
+
+%% DQ test
+
+p = SimBacktest.pValues_DQ;
+psub = SimBacktest.pValues_DQ_sub;
+
+% UC w and w/o subsampling alpha = 0.01
+mean(p(:,1) < 0.05, 'omitnan')
+mean(psub(:,1) < 0.05, 'omitnan')
+
+% UC w and w/o subsampling alpha = 0.025
+mean(p(:,2) < 0.05, 'omitnan')
+mean(psub(:,2) < 0.05, 'omitnan')
+
+
+
+%%  ES test
+t = SimBacktest.tValues_ES;
+tsub = SimBacktest.tValues_ES_sub;
+
+% ES no subsampling alpha = 0.01
+figure
+histogram(t(1:500,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('ES test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+mean(abs(t(1:500,1)) >=1.96, 'omitnan')
+
+
+% ES no subsampling alpha = 0.025
+figure
+histogram(t(1:500,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('ES test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+mean(abs(t(1:500,2)) >=1.96, 'omitnan')
+
+
+% ES subsampling alpha = 0.01 - Not enough violations!!!!!!!!!!!!!!
+figure
+histogram(max(min(10,tsub(1:480,1)),-10), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('ES test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+mean(abs(tsub(1:480,1)) >=1.96, 'omitnan')
+
+
+% ES subsampling alpha = 0.025
+figure
+histogram(tsub(1:500,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+hold on
+x_range = linspace(-5, 5, 1000);
+plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+xline(0, 'k--', 'LineWidth', 1.5)
+xlabel('t-statistic')
+ylabel('Density')
+title('ES test t-statistics vs Standard Normal')
+legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+
+mean(abs(tsub(1:500,2)) >=1.96, 'omitnan')

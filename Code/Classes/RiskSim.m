@@ -3,9 +3,9 @@ classdef RiskSim
     % distributions and computing risk measures.
     %
     %   Contains static methods for h-step ahead Monte Carlo simulation
-    %   of return paths under a fitted GARCH(1,1) model, and computation
-    %   of Value-at-Risk (VaR) and Expected Shortfall (ES) from the
-    %   simulated distributions.
+    %   of return paths under a fitted GARCH(1,1)/HEAVY model, and 
+    %   computation of Value-at-Risk (VaR) and Expected Shortfall (ES) from 
+    %   the simulated distributions.
     %
     %   Supports normal, Student-t, and Hansen skew-t innovation
     %   distributions via an optional name-value interface. Innovation
@@ -90,7 +90,7 @@ classdef RiskSim
         %
             
             % Optional positional inputs
-            if nargin < 6
+            if nargin < 6 || isempty(mu)
                 mu   = 0; % Mean of return series
             end   
             
@@ -104,7 +104,7 @@ classdef RiskSim
             addParameter(p, 'z',      []);
             parse(p, varargin{:});
             
-            conf   = p.Results.conf;
+            % conf   = p.Results.conf;
             dist   = p.Results.dist;
             model  = p.Results.model;
             nu     = p.Results.nu;
@@ -202,6 +202,90 @@ classdef RiskSim
    
         end
 
+
+        function [R_cum, r_sim, h_sim, VaR, ES] = hStepSimHeavy(pars_r, ...
+                pars_rv, H, M, RV, h_last, tau_last, mu, varargin)
+        %HSTEPSIMHEAVY 
+            
+            % Optional positional inputs
+            if nargin < 8 || isempty(mu)
+                mu   = 0; % Mean of return series
+            end   
+            
+            % Name-value inputs
+            p = inputParser;
+            addParameter(p, 'conf',   0.01);
+            addParameter(p, 'dist',   'norm');
+            addParameter(p, 'nu',     NaN);
+            addParameter(p, 'lambda', NaN);
+            addParameter(p, 'z',      []);
+            parse(p, varargin{:});
+            
+            % conf   = p.Results.conf;
+            dist   = p.Results.dist;
+            nu     = p.Results.nu;
+            lambda = p.Results.lambda;
+            z      = p.Results.z;
+            K      = 1;
+
+
+            % Simulated innovations — draw internally if z not supplied
+            if isempty(z)
+                    if ismember(dist, {'laplace', 'empirical'})
+                        error(['hStepSimHeavy: dist ''%s'' requires z ' ...
+                               'to be provided externally — internal ' ...
+                               'drawing not supported for this ' ...
+                               'distribution'], dist);
+                    end
+                rng(1); % only set seed when drawing internally
+                z = RiskSim.drawZ(H, M, K, dist, nu, lambda);
+            else
+                if ~isequal(size(z), [H, M])
+                    error(['hStepSimHeavy: z must be (%d x %d) but ' ...
+                           'got (%d x %d)'], H, M, size(z,1), size(z,2));
+                end
+            end
+
+            % HEAVY-RM parameters
+            omega_rv = pars_rv(1);
+            alpha_rv = pars_rv(2);
+            beta_rv  = pars_rv(3);
+            phi      = pars_rv(4);
+
+            % HEAVY-r parameters
+            omega_r = pars_r(1);
+            alpha_r = pars_r(2);
+            beta_r  = pars_r(3);
+
+            % Pre-specify matrices
+            r_sim = NaN(H, M);  % simulated returns
+            
+            % Simulate M Paths of r_{t+j} and h_{t+j} for j = 1, ..., H
+            rng(1);
+            h = omega_r + alpha_r * RV + beta_r * h_last;
+            for j = 1:H
+                % Return equation
+                r_sim(j,:) = mu + sqrt(h) .* z(j,:);
+
+                if j < H
+                    % HEAVY-RM forecast
+                    tau_last = omega_rv + alpha_rv*RV + beta_rv*tau_last;
+                    RV       = phi * randg(tau_last / phi, 1, M);
+
+                    % HEAVY-r forecast
+                    h = omega_r + alpha_r * RV + beta_r * h;
+                end
+            end
+
+            % Cumulative returns
+            R_cum = cumsum(r_sim, 1);   % row h = sum of steps 1..h
+            
+            % VaR and ES at each horizon h at 'conf' level
+            VaR   = NaN(H, 1);
+            ES    = NaN(H, 1);
+            h_sim = NaN;
+   
+        end
 
 
 %==========================================================================

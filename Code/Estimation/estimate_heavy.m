@@ -32,6 +32,7 @@ function EstOut = estimate_heavy(R, RV, varargin)
 %                EstOut.HEAVY_RV_pars - (T x 4 x K) RM equation pars
 %                EstOut.mu            - (T x K) mean estimates
 %                EstOut.H_last        - (T x K) last filtered variance
+%                EstOut.Tau_last      - (T x K) last filtered RV measure
 %                EstOut.NegLL_r       - (T x K) return equation neg LL
 %                EstOut.NegLL_RV      - (T x K) RM equation neg LL
 %                EstOut.std_res       - (W x K x T) rolling std. resid.
@@ -153,6 +154,7 @@ mu            = NaN(T, K);
 HEAVY_r_pars  = NaN(T, 3, K);
 HEAVY_RV_pars = NaN(T, 4, K);
 H_last        = NaN(T, K);
+Tau_last      = NaN(T, K);
 NegLL_r       = NaN(T, K);
 NegLL_RV      = NaN(T, K);
 std_res       = NaN(W, K, T);
@@ -167,6 +169,7 @@ n_reest     = length(reest_dates);
 mu_reest           = NaN(n_reest, K);
 HEAVY_r_pars_reest = NaN(n_reest, 3, K);
 H_last_reest       = NaN(n_reest, K);
+Tau_last_reest     = NaN(n_reest, K);
 NegLL_reest        = NaN(n_reest, K);
 std_res_reest      = NaN(W, K, n_reest);
 nu_reest           = NaN(n_reest, K);
@@ -203,7 +206,8 @@ if num_workers > 1
             Heavy_RV_pars = fmincon(@(pars) ll_fun_RM_local(pars, rv), ...
                 startrv, Arv, brv, [], [], lbrv, ubrv, [], options); 
 
-            NegLLRVk                   = ll_fun_RM_local(Heavy_RV_pars,rv);
+            [NegLLRVk, Tau_t]          = ll_fun_RM_local(Heavy_RV_pars,rv);
+            Tau_last_reest(i,k)        = Tau_t(end); 
             HEAVY_RV_pars_reest(i,:,k) = Heavy_RV_pars;
             NegLL_RV_reest(i,k)        = NegLLRVk;
 
@@ -235,8 +239,9 @@ else
             Heavy_RV_pars = fmincon(@(pars) ll_fun_RM(pars, rv), ...
                 startrv, Arv, brv, [], [], lbrv, ubrv, [], options); 
 
-            NegLLRVk                   = ll_fun_RM(Heavy_RV_pars, rv);
+            [NegLLRVk, Tau_t]          = ll_fun_RM(Heavy_RV_pars, rv);
             HEAVY_RV_pars_reest(i,:,k) = Heavy_RV_pars;
+            Tau_last_reest(i,k)        = Tau_t(end);            
             NegLL_RV_reest(i,k)        = NegLLRVk;
 
             % Estimate return equation
@@ -266,6 +271,7 @@ for i = 1:n_reest
     HEAVY_RV_pars(t,:,:) = HEAVY_RV_pars_reest(i,:,:);
     mu(t,:)              = mu_reest(i,:);
     H_last(t,:)          = H_last_reest(i,:);
+    Tau_last(t,:)        = Tau_last_reest(i,:);
     NegLL_r(t,:)         = NegLL_reest(i,:);
     NegLL_RV(t,:)        = NegLL_RV_reest(i,:);
     std_res(:,:,t)       = std_res_reest(:,:,i);
@@ -286,6 +292,11 @@ for t = t_start:T
             beta             = HEAVY_r_pars(t,3,k);
             H_last(t,k)      = omega + alpha*RVs(t-1,k) ...
                                + beta*H_last(t-1,k);
+            omega_rv         = HEAVY_RV_pars(t,1,k);
+            alpha_rv         = HEAVY_RV_pars(t,2,k);
+            beta_rv          = HEAVY_RV_pars(t,3,k);   
+            Tau_last(t,k)    = omega_rv + alpha_rv*RVs(t-1,k) ...
+                               + beta_rv*Tau_last(t-1,k);           
             new_res          = (R(t-1,k) - mu(t,k)) / sqrt(H_last(t,k));
             std_res(:,k,t)   = [std_res(2:end,k,t-1); new_res];
             nu(t,k)          = nu(t-1,k);
@@ -302,10 +313,11 @@ EstOut.assets        = assets;
 EstOut.dates         = dates;
 EstOut.WindLength    = W;
 EstOut.ReestFreq     = reest_freq;
-EstOut.HEAVY_r_pars  = HEAVY_r_pars;    % (T x 3 x K) return equation pars
-EstOut.HEAVY_RV_pars = HEAVY_RV_pars;   % (T x 4 x K) RM equation pars
+EstOut.HEAVY_r_pars  = HEAVY_r_pars;     % (T x 3 x K) return equation pars
+EstOut.HEAVY_RV_pars = HEAVY_RV_pars;    % (T x 4 x K) RM equation pars
 EstOut.mu            = mu;               % (T x K)
 EstOut.H_last        = H_last;           % (T x K)
+EstOut.Tau_last      = Tau_last;         % (T x K)
 EstOut.NegLL_r       = NegLL_r;          % (T x K) return LL
 EstOut.NegLL_RV      = NegLL_RV;         % (T x K) RM LL
 EstOut.std_res       = std_res;          % (W x K x T)

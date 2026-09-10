@@ -60,6 +60,8 @@ function EstOut = estimate_copula(MarginalEst, varargin)
 %                  .lambda        - (TxK) skewness parameters
 %                Fields present for empirical PITs:
 %                  .std_res       - (WxKxT) rolling standardized residuals
+%                Fields present for HEAVY-model:
+%                  .Tau_last      - (TxK) last filtered RV measure
 %
 %   NOTES:
 %       - Copula is re-estimated every ReestFreq days using the in-sample
@@ -373,10 +375,16 @@ if get_nu_cop
 end
 
 % Storing relevant objects for the marginal distribution
-EstOut.GARCHpars = MarginalEst.GARCHpars;
-EstOut.mu        = MarginalEst.mu;
-EstOut.H_last    = MarginalEst.H_last;
-EstOut.margDist  = MarginalEst.dist;
+if contains(MarginalEst.model, 'HEAVY')
+    EstOut.HEAVY_r_pars  = MarginalEst.HEAVY_r_pars;
+    EstOut.HEAVY_RV_pars = MarginalEst.HEAVY_RV_pars;
+    EstOut.Tau_last      = MarginalEst.Tau_last;
+else
+    EstOut.GARCHpars = MarginalEst.GARCHpars;
+end
+EstOut.mu       = MarginalEst.mu;
+EstOut.H_last   = MarginalEst.H_last;
+EstOut.margDist = MarginalEst.dist;
 if ismember(MarginalEst.dist, {'t', 'skewt'})
     EstOut.nu = MarginalEst.nu;
 end

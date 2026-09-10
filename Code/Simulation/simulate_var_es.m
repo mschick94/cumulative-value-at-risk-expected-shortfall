@@ -84,6 +84,12 @@ if contains(Model, 'HEAVY')
     GARCHpars.HEAVY_r_pars  = CopulaEst.HEAVY_r_pars;
     GARCHpars.HEAVY_RV_pars = CopulaEst.HEAVY_RV_pars;
     GARCHpars.Tau_last      = CopulaEst.Tau_last;
+
+    % Read out RV measure
+    K        = size(Returns, 2);
+    diag_idx = 1 + cumsum([0, K:-1:2]); 
+    RV       = RV(:, diag_idx); 
+
 elseif contains(Model, 'GJR')
     GARCHspec = 'gjr';
     GARCHpars = CopulaEst.GARCHpars;

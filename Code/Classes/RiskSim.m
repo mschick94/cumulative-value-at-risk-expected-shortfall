@@ -263,7 +263,7 @@ classdef RiskSim
             % Simulate M Paths of r_{t+j} and h_{t+j} for j = 1, ..., H
             rng(1);
             h = omega_r + alpha_r * RV + beta_r * h_last;
-            for j = 1:H
+            for j = 1:H                    
                 % Return equation
                 r_sim(j,:) = mu + sqrt(h) .* z(j,:);
 

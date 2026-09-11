@@ -10,10 +10,12 @@ function VaRESOut = simulate_var_es(CopulaEst, Returns, PFweights, ...
 %   INPUTS (required):
 %       CopulaEst  : Struct, output from estimate_copula. Must contain
 %                    all marginal and copula estimation output including
-%                    GARCHpars, mu, H_last, Rmat, and model identifiers.
+%                    GARCHpars/HEAVY_r_pars, mu, H_last, Rmat, and model
+%                    identifiers.
 %       Returns    : (TxK) matrix of observed returns
 %       PFweights  : (Kx1) or (1xK) vector of portfolio weights
-%       alpha      : p-vector, significance levels e.g. 0.025 for 97.5% VaR
+%       alpha      : (1xP) vector of significance levels
+%                    e.g. [0.01, 0.025] for 99% and 97.5% VaR
 %
 %   INPUTS (optional name-value):
 %       'H'          : Scalar, simulation horizon in days (default: 10)
@@ -21,48 +23,62 @@ function VaRESOut = simulate_var_es(CopulaEst, Returns, PFweights, ...
 %       'NumWorkers' : Scalar, number of parallel workers (default: 1)
 %       'SetSeed'    : Logical, set seed for reproducibility 
 %                      (default: true)
+%       'RV'         : (Tx(K*(K+1)/2)) matrix of realized variances
+%                      in vech format. Required for HEAVY models,
+%                      pass [] for GARCH/GJR models (default: [])
+%       'ActualHStepPFRet' : (Tx1) vector of realized H-step ahead
+%                            cumulative portfolio returns. Required for
+%                            PIT computation. Pass [] to skip (default: [])
 %
 %   OUTPUT:
 %       VaRESOut : Struct containing:
-%                  .VaR        - (T x H x 1 x P) VaR forecasts, negative values
-%                  .ES         - (T x H x 1 x P) ES forecasts, negative values
-%                  .alpha      - significance level
-%                  .H          - simulation horizon
-%                  .M          - number of simulation paths
-%                  .model      - model identifier string
-%                  .MargDist   - marginal distribution
-%                  .CopulaDist - copula distribution
-%                  .CorrModel  - correlation model
-%                  .GARCHspec  - 'garch' or 'gjr'
+%                  .VaR    - (T x 1 x 1 x P) VaR forecasts, negative values
+%                  .ES     - (T x 1 x 1 x P) ES forecasts, negative values
+%                  .PITs   - (T x 1) empirical PITs from simulated
+%                            distribution. NaN for t > T-H+1 where
+%                            realized returns unavailable. Only computed
+%                            if ActualHStepPFRet provided.
+%                  .alpha  - (1xP) significance levels
+%                  .H      - simulation horizon
+%                  .M      - number of simulation paths
+%                  .model  - model identifier string
+%                  .MargDist      - marginal distribution
+%                  .CopulaDist    - copula distribution
+%                  .CorrModel     - correlation model
+%                  .GARCHspec     - 'garch', 'gjr' or 'heavy'
 %                  .EmpiricalPits - logical, whether empirical PITs used
-%                  .assets     - asset names
-%                  .dates      - dates vector
-%                  .PFweights  - (1xK) portfolio weights used
-%                  .WindLength - estimation window length
-%                  .ReestFreq  - re-estimation frequency
+%                  .assets        - asset names
+%                  .dates         - dates vector
+%                  .PFweights     - (1xK) portfolio weights used
+%                  .WindLength    - estimation window length
+%                  .ReestFreq     - re-estimation frequency
 %
 %   NOTES:
 %       - VaR and ES are reported as negative numbers (left tail)
-%       - Standard normal draws are fixed across t for simulation
-%         consistency; only model parameters vary over time
+%       - Standard normal draws fixed across t for simulation consistency
 %       - For t-copula, invGamma redrawn at each t with rng(1)
 %       - Portfolio VaR/ES aggregated using PFweights at each t
+%       - Only h=H stored — collapse over horizon dimension
+%       - PITs computed as empirical CDF: mean(PFRet_H <= ActualCumRet_t)
+%         used for Bernoulli-corrected ES test (Du & Escanciano, 2017)
 %       - Supply NumWorkers > 1 to enable parallel simulation over t
 
 % Name-value inputs
 p = inputParser;
 p.KeepUnmatched = true;
-addParameter(p, 'H',          10);
-addParameter(p, 'M',          1000);
-addParameter(p, 'NumWorkers', 1);
-addParameter(p, 'SetSeed',    true);
-addParameter(p, 'RV',         []);
+addParameter(p, 'H',                10);
+addParameter(p, 'M',                1000);
+addParameter(p, 'NumWorkers',       1);
+addParameter(p, 'SetSeed',          true);
+addParameter(p, 'RV',               []);
+addParameter(p, 'ActualHStepPFRet', []);
 parse(p, varargin{:});
 
-H           = p.Results.H;
-M           = p.Results.M;
-RV          = p.Results.RV;
-num_workers = p.Results.NumWorkers;
+H                = p.Results.H;
+M                = p.Results.M;
+RV               = p.Results.RV;
+ActualHStepPFRet = p.Results.ActualHStepPFRet;
+num_workers      = p.Results.NumWorkers;
 
 % Transform weight vector to row vector
 if size(PFweights, 1) > size(PFweights, 2)
@@ -165,10 +181,11 @@ if num_workers > 1
     end
 end
 
-% Pre-allocate VaR and ES only
-P = length(alpha);
-VaR = NaN(T, 1, P); % NaN(T, H, P); if all h=1:H needed 
-ES  = NaN(T, 1, P); % NaN(T, 1, P); Computationally more costly!
+% Pre-allocate VaR, ES, and PITs
+P    = length(alpha);
+VaR  = NaN(T, 1, P); % NaN(T, H, P); if all h=1:H needed 
+ES   = NaN(T, 1, P); % NaN(T, 1, P); Computationally more costly!
+PITs = NaN(T, 1);
 
 if num_workers > 1
     parfor t = t_start:T
@@ -200,6 +217,12 @@ if num_workers > 1
             ES(t,1,p)  = mean(sorted_H(1:idx));
         end
 
+        % Compute PITs from simulated distribution
+        if t <= T-H+1
+            ActualCumRet_t = ActualHStepPFRet(t);
+            PITs(t)        = mean(PFRet_H <= ActualCumRet_t);
+        end
+
     end
 else
     for t = t_start:T
@@ -228,12 +251,19 @@ else
             ES(t,1,p)  = mean(sorted_H(1:idx));
         end
 
+        % Compute PITs from simulated distribution
+        if t <= T-H+1
+            ActualCumRet_t = ActualHStepPFRet(t);
+            PITs(t)        = mean(PFRet_H <= ActualCumRet_t);
+        end
+
     end
 end
 
 % Pack VaRESOut
 VaRESOut.VaR           = reshape(VaR, T, 1, 1, P); %reshape(VaR, T, 1, H, P);
 VaRESOut.ES            = reshape(ES, T, 1, 1, P); 
+VaRESOut.PITs          = PITs;
 VaRESOut.alpha         = alpha;
 VaRESOut.H             = H;
 VaRESOut.M             = M;

@@ -678,10 +678,9 @@ classdef VarianceModels
             
             % Negative log-likelihood
             % (same number of LL-contributions as in GARCH specifications)
-            H_std = H_t(2:end) / phi;
             RV(1) = [];
-            NegLL = sum( gammaln(H_std) + H_std * log(phi) ...
-                         - (H_std - 1) .* log(RV) + RV / phi );
+            NegLL = sum(gammaln(phi) - phi*log(phi) - (phi-1)*log(RV) ...
+            + phi*log(H_t(2:end)) + phi*(RV./H_t(2:end)));
 
         end
 

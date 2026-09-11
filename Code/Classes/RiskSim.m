@@ -270,8 +270,8 @@ classdef RiskSim
                 if j < H
                     % HEAVY-RM forecast
                     tau_last = omega_rv + alpha_rv*RV + beta_rv*tau_last;
-                    RV       = phi * randg(tau_last / phi, 1, M);
-
+                    RV = (tau_last/phi) * randg(phi, 1, M); 
+                    
                     % HEAVY-r forecast
                     h = omega_r + alpha_r * RV + beta_r * h;
                 end

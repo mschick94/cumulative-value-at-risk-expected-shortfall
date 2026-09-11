@@ -79,7 +79,7 @@ PFVaRandES = simulate_var_es(PF_copula, R_pf, 1, alpha, ...
 % Add to evaluation structure
 VaRandES.VaR    = cat(2, VaRandES.VaR, PFVaRandES.VaR);
 VaRandES.ES     = cat(2, VaRandES.ES,  PFVaRandES.ES);
-VaRandES.Models = [VaRandES.Models, {model_str}];
+VaRandES.Models = [VaRandES.Models; {model_str}];
 
 
 end

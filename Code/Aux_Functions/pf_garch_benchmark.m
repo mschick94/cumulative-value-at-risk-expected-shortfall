@@ -30,8 +30,8 @@ function VaRandES = pf_garch_benchmark(dist, R, PFweights, VaRandES, ...
 %                         (default: false)
 %
 %   OUTPUT:
-%       VaRandES : Updated struct with PF benchmark VaR, ES and PITs
-%                  appended for all alpha levels. Compatible with
+%       VaRandES : Updated struct with PF benchmark VaR, ES and empirical 
+%                  PITs appended for all alpha levels. Compatible with
 %                  score_fz and var_uc_test.
 %
 %   NOTES:
@@ -92,10 +92,10 @@ PFVaRandES = simulate_var_es(PF_copula, R_pf, 1, alpha, ...
                              'NumWorkers', NumberWorkers);
 
 % Add to evaluation structure
-VaRandES.VaR    = cat(2, VaRandES.VaR,  PFVaRandES.VaR);
-VaRandES.ES     = cat(2, VaRandES.ES,   PFVaRandES.ES);
-VaRandES.PITs   = cat(2, VaRandES.PITs, PFVaRandES.PITs);
-VaRandES.Models = [VaRandES.Models; {model_str}];
+VaRandES.VaR     = cat(2, VaRandES.VaR,     PFVaRandES.VaR);
+VaRandES.ES      = cat(2, VaRandES.ES,      PFVaRandES.ES);
+VaRandES.EmpPITs = cat(2, VaRandES.EmpPITs, PFVaRandES.PITs);
+VaRandES.Models  = [VaRandES.Models; {model_str}];
 
 
 end

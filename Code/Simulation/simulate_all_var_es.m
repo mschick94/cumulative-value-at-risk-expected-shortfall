@@ -98,10 +98,10 @@ J           = length(model_names);
 j           = 0;
 m_start     = 1;
 
-% If crashed uncomment the following three lines and run again
-load('Output\VaRandES\checkpoint.mat')
-j = length(VaRESOut.Models); 
-m_start = j + 1;
+% % If crashed, uncomment the following three lines and run again
+% load('Output\VaRandES\checkpoint.mat')
+% j = length(VaRESOut.Models); 
+% m_start = j + 1;
 
 p = length(alpha);
 for m = m_start:J
@@ -115,6 +115,7 @@ for m = m_start:J
         H_n = size(result.VaR, 3);
         VaRESOut.VaR        = NaN(T, J, H_n, p);
         VaRESOut.ES         = NaN(T, J, H_n, p);
+        VaRESOut.PITs       = NaN(T, J, H_n);
         VaRESOut.alpha      = alpha;
         VaRESOut.H          = result.H;
         VaRESOut.M          = result.M;
@@ -124,10 +125,10 @@ for m = m_start:J
         VaRESOut.WindLength = result.WindLength;
         VaRESOut.ReestFreq  = result.ReestFreq;
         VaRESOut.Models     = {};
-        first               = false;
     end
     VaRESOut.VaR(:, j, :, :) = result.VaR(:, 1, :, :);
     VaRESOut.ES(:, j, :, :)  = result.ES(:, 1, :, :);
+    VaRESOut.EmpPITs(:, j)   = result.PITs;
     VaRESOut.Models{j, 1}    = model_name;
 
     save('Output/VaRandES/checkpoint.mat', 'VaRESOut');

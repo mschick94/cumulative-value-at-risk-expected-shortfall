@@ -680,7 +680,7 @@ classdef VarianceModels
             % (same number of LL-contributions as in GARCH specifications)
             RV(1) = [];
             NegLL = sum(gammaln(phi) - phi*log(phi) - (phi-1)*log(RV) ...
-            + phi*log(H_t(2:end)) + phi*(RV./H_t(2:end)));
+                    + phi*log(H_t(2:end)) + phi*(RV./H_t(2:end)));
 
         end
 

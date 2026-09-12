@@ -205,7 +205,60 @@ classdef RiskSim
 
         function [R_cum, r_sim, h_sim, VaR, ES] = hStepSimHeavy(pars_r, ...
                 pars_rv, H, M, RV, h_last, tau_last, mu, varargin)
-        %HSTEPSIMHEAVY 
+        %HSTEPSIMHEAVY Simulate h-step ahead return paths from a HEAVY 
+        % model and compute cumulative VaR and ES at each horizon.
+        %
+        %   [R_cum, r_sim, h_sim, VaR, ES] = HSTEPSIMHEAVY(pars_r, pars_rv,
+        %                         H, M, RV, h_last, tau_last, mu, varargin)
+        %   simulates M paths of length H forward from the last observed
+        %   realized variance and filtered variances, iterating the HEAVY
+        %   variance equation using simulated Gamma-distributed realized
+        %   variances. VaR and ES are computed on cumulative returns.
+        %
+        %   INPUTS (required):
+        %       pars_r   : (3x1) parameter vector [omega; alpha; beta] for
+        %                  the return variance equation
+        %       pars_rv  : (4x1) parameter vector [omega_rv; alpha_rv;
+        %                  beta_rv; phi] for the RV equation
+        %       H        : Scalar, forecast horizon (number of steps ahead)
+        %       M        : Scalar, number of simulation paths
+        %       RV       : Scalar, last observed realized variance RV_T
+        %       h_last   : Scalar, last filtered conditional variance h_T
+        %       tau_last : Scalar, last filtered cond. mean of RV tau_T
+        %
+        %   INPUTS (optional positional):
+        %       mu       : Scalar, mean of return series (default: 0)
+        %
+        %   INPUTS (optional name-value):
+        %       'dist'   : String, innovation distribution. Options:
+        %                  'norm'      - standard normal (default)
+        %                  't'         - standardized Student-t
+        %                  'skewt'     - standardized Hansen Student-t
+        %                  'laplace'   - Laplace distribution
+        %                  'empirical' - empirical inverse CDF
+        %       'nu'     : Scalar, degrees of freedom for Student-t
+        %                  (required if dist = 't' or 'skewt')
+        %       'lambda' : Scalar, skewness parameter for Hansen's skew-t
+        %                  (required if dist = 'skewt')
+        %       'z'      : (HxM) matrix of pre-drawn standard. innovations
+        %                  (default: drawn internally based on dist)
+        %                  Supply externally to reuse draws across days.
+        %       'conf'   : Scalar, quantile level for VaR and ES
+        %                  (default: 0.01)
+        %
+        %   OUTPUTS:
+        %       R_cum  : (HxM) matrix of simulated cumulative returns per
+        %                step per path
+        %       r_sim  : (HxM) matrix of simulated returns per step per path
+        %       h_sim  : (HxM) matrix of simulated conditional variances
+        %                per step per path (placeholder, returns NaN)
+        %       VaR    : (Hx1) vector of VaR estimates at each horizon
+        %                h = 1,...,H at quantile level conf. Negative number
+        %                (left tail). Multiply by -1 for reporting as loss.
+        %       ES     : (Hx1) vector of ES estimates at each horizon h =
+        %                1,...,H. Mean of simulated cumulative returns below
+        %                VaR(conf). Negative number.
+        %
             
             % Optional positional inputs
             if nargin < 8 || isempty(mu)
@@ -270,7 +323,7 @@ classdef RiskSim
                 if j < H
                     % HEAVY-RM forecast
                     tau_last = omega_rv + alpha_rv*RV + beta_rv*tau_last;
-                    RV = (tau_last/phi) * randg(phi, 1, M); 
+                    RV = (tau_last/phi) .* randg(phi, 1, M); 
                     
                     % HEAVY-r forecast
                     h = omega_r + alpha_r * RV + beta_r * h;

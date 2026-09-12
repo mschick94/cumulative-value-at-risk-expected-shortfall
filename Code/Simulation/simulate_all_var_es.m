@@ -65,6 +65,7 @@ p.KeepUnmatched = true;
 addParameter(p, 'RV',         []);
 addParameter(p, 'H',          []);
 addParameter(p, 'OutputName', 'EquallyWeighted');
+addParameter(p, 'ResumeFrom', []); 
 parse(p, varargin{:});
 
 H_aux      = p.Results.H;
@@ -94,17 +95,22 @@ ActualHStepPFRet(1:T-H_aux+1) = CumSum(H_aux:T) - [0; CumSum(1:T-H_aux)];
 % Model specs
 model_names = fieldnames(EstOut);
 J           = length(model_names);
-first       = true;
 j           = 0;
+m_start     = 1;
+
+% If crashed uncomment the following three lines and run again
+load('Output\VaRandES\checkpoint.mat')
+j = length(VaRESOut.Models); 
+m_start = j + 1;
 
 p = length(alpha);
-for m = 1:J
+for m = m_start:J
     model_name = model_names{m};
     result = simulate_var_es(EstOut.(model_name), R, PFweights, alpha, ...
                              'ActualHStepPFRet', ActualHStepPFRet, ...
                              varargin{:});
     j = j + 1;
-    if first
+    if ~exist('VaRESOut', 'var')
         T   = size(result.VaR, 1);
         H_n = size(result.VaR, 3);
         VaRESOut.VaR        = NaN(T, J, H_n, p);

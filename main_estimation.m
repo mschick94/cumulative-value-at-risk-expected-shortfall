@@ -372,6 +372,7 @@ alpha = [0.01, 0.025];
 WindLength_mc = 1000;
 reest_freq_mc = 250;
 
+HitRate             = NaN(B, 2);
 UC_t                = NaN(B, 2);
 UC_p_one_sided      = NaN(B, 2);
 UC_p_two_sided      = NaN(B, 2);
@@ -381,6 +382,9 @@ UC_bern_p_two_sided = NaN(B, 2);
 ES_t                = NaN(B, 2);
 ES_p_one_sided      = NaN(B, 2);
 ES_p_two_sided      = NaN(B, 2);
+ES_bern_t           = NaN(B, 2);
+ES_bern_p_one_sided = NaN(B, 2);
+ES_bern_p_two_sided = NaN(B, 2);
 GARCH_pars          = NaN(B, 4);
 
 % Draw random numbers
@@ -402,21 +406,22 @@ for b = 1:B
     end
 
     % Simulate VaR and ES 
-    [VaR, ES, EstPars] = simulate_var_es_univ(r_sim, alpha,'H', H_mc, ...
-                                           'M', Msim, ...
+    [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(r_sim, alpha, ...
+                                           'H', H_mc, 'M', Msim, ...
                                            'WindLength', WindLength_mc, ...
                                            'ReestFreq', reest_freq_mc, ...
                                            'TruePars', [], 'z_sim', z_sim);
 
     % US and ES test
-    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, alpha(1), ...
-                                   10, WindLength_mc);
-    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, alpha(2), ...
-                                   10, WindLength_mc);
+    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, EmpPITs, ...
+                                   alpha(1), 10, WindLength_mc);
+    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, EmpPITs, ...
+                                   alpha(2), 10, WindLength_mc);
 
     % Collect test results
     GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
                         mean(EstPars.GARCHpars(WindLength_mc+1:end,:))];
+    HitRate(b,:)             = [TestRes_0010.HitRate,             TestRes_0025.HitRate];
     UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
     UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
     UC_p_one_sided(b,:)      = [TestRes_0010.UC_p_one_sided,      TestRes_0025.UC_p_one_sided];
@@ -426,12 +431,16 @@ for b = 1:B
     ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
     ES_p_one_sided(b,:)      = [TestRes_0010.ES_p_one_sided,      TestRes_0025.ES_p_one_sided];
     ES_p_two_sided(b,:)      = [TestRes_0010.ES_p_two_sided,      TestRes_0025.ES_p_two_sided];
+    ES_bern_t(b,:)           = [TestRes_0010.ES_bern_t,           TestRes_0025.ES_bern_t];
+    ES_bern_p_one_sided(b,:) = [TestRes_0010.ES_bern_p_one_sided, TestRes_0025.ES_bern_p_one_sided];
+    ES_bern_p_two_sided(b,:) = [TestRes_0010.ES_bern_p_two_sided, TestRes_0025.ES_bern_p_two_sided];
 
     fprintf('Replication %d/%d done\n', b, B);
 
 end
 
 % Pack simulation results
+SimBacktest.HitRate             = HitRate;
 SimBacktest.UC_t                = UC_t;
 SimBacktest.UC_p_one_sided      = UC_p_one_sided;
 SimBacktest.UC_p_two_sided      = UC_p_two_sided;
@@ -441,6 +450,9 @@ SimBacktest.UC_bern_p_two_sided = UC_bern_p_two_sided;
 SimBacktest.ES_t                = ES_t;
 SimBacktest.ES_p_one_sided      = ES_p_one_sided;
 SimBacktest.ES_p_two_sided      = ES_p_two_sided;
+SimBacktest.ES_bern_t           = ES_bern_t;
+SimBacktest.ES_bern_p_one_sided = ES_bern_p_one_sided;
+SimBacktest.ES_bern_p_two_sided = ES_bern_p_two_sided;
 SimBacktest.GARCH_pars          = GARCH_pars;
 SimBacktest.B                   = B;
 SimBacktest.T_sim               = T_sim;
@@ -462,6 +474,7 @@ fprintf('Results saved to %s\n', filename);
 % True parameters
 true_vec = [omega_true, alpha_true, beta_true];
 
+HitRate             = NaN(B, 2);
 UC_t                = NaN(B, 2);
 UC_p_one_sided      = NaN(B, 2);
 UC_p_two_sided      = NaN(B, 2);
@@ -471,6 +484,9 @@ UC_bern_p_two_sided = NaN(B, 2);
 ES_t                = NaN(B, 2);
 ES_p_one_sided      = NaN(B, 2);
 ES_p_two_sided      = NaN(B, 2);
+ES_bern_t           = NaN(B, 2);
+ES_bern_p_one_sided = NaN(B, 2);
+ES_bern_p_two_sided = NaN(B, 2);
 GARCH_pars          = NaN(B, 4);
 
 % Draw random numbers
@@ -492,22 +508,23 @@ for b = 1:B
     end
 
     % Simulate VaR and ES 
-    [VaR, ES, EstPars] = simulate_var_es_univ(r_sim, alpha,'H', H_mc, ...
-                                           'M', Msim, ...
+    [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(r_sim, alpha, ...
+                                           'H', H_mc, 'M', Msim, ...
                                            'WindLength', WindLength_mc, ...
                                            'ReestFreq', reest_freq_mc, ...
                                            'TruePars', true_vec, ...
                                            'z_sim', z_sim);
 
     % US and ES test
-    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, alpha(1), ...
-                                   10, WindLength_mc);
-    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, alpha(2), ...
-                                   10, WindLength_mc);
+    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, EmpPITs, ...
+                                   alpha(1), 10, WindLength_mc);
+    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, EmpPITs, ...
+                                   alpha(2), 10, WindLength_mc);
 
     % Collect test results
     GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
                         mean(EstPars.GARCHpars(WindLength_mc+1:end,:))];
+    HitRate(b,:)             = [TestRes_0010.HitRate,             TestRes_0025.HitRate];
     UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
     UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
     UC_p_one_sided(b,:)      = [TestRes_0010.UC_p_one_sided,      TestRes_0025.UC_p_one_sided];
@@ -517,12 +534,16 @@ for b = 1:B
     ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
     ES_p_one_sided(b,:)      = [TestRes_0010.ES_p_one_sided,      TestRes_0025.ES_p_one_sided];
     ES_p_two_sided(b,:)      = [TestRes_0010.ES_p_two_sided,      TestRes_0025.ES_p_two_sided];
+    ES_bern_t(b,:)           = [TestRes_0010.ES_bern_t,           TestRes_0025.ES_bern_t];
+    ES_bern_p_one_sided(b,:) = [TestRes_0010.ES_bern_p_one_sided, TestRes_0025.ES_bern_p_one_sided];
+    ES_bern_p_two_sided(b,:) = [TestRes_0010.ES_bern_p_two_sided, TestRes_0025.ES_bern_p_two_sided];
 
     fprintf('Replication %d/%d done\n', b, B);
 
 end
 
 % Pack simulation results
+SimBacktest.HitRate             = HitRate;
 SimBacktest.UC_t                = UC_t;
 SimBacktest.UC_p_one_sided      = UC_p_one_sided;
 SimBacktest.UC_p_two_sided      = UC_p_two_sided;
@@ -532,6 +553,9 @@ SimBacktest.UC_bern_p_two_sided = UC_bern_p_two_sided;
 SimBacktest.ES_t                = ES_t;
 SimBacktest.ES_p_one_sided      = ES_p_one_sided;
 SimBacktest.ES_p_two_sided      = ES_p_two_sided;
+SimBacktest.ES_bern_t           = ES_bern_t;
+SimBacktest.ES_bern_p_one_sided = ES_bern_p_one_sided;
+SimBacktest.ES_bern_p_two_sided = ES_bern_p_two_sided;
 SimBacktest.GARCH_pars          = GARCH_pars;
 SimBacktest.B                   = B;
 SimBacktest.T_sim               = T_sim;
@@ -551,6 +575,7 @@ fprintf('Results saved to %s\n', filename);
 
 
 % Monte Carlo - GARCH-t
+HitRate             = NaN(B, 2);
 UC_t                = NaN(B, 2);
 UC_p_one_sided      = NaN(B, 2);
 UC_p_two_sided      = NaN(B, 2);
@@ -560,6 +585,9 @@ UC_bern_p_two_sided = NaN(B, 2);
 ES_t                = NaN(B, 2);
 ES_p_one_sided      = NaN(B, 2);
 ES_p_two_sided      = NaN(B, 2);
+ES_bern_t           = NaN(B, 2);
+ES_bern_p_one_sided = NaN(B, 2);
+ES_bern_p_two_sided = NaN(B, 2);
 GARCH_pars          = NaN(B, 5);
 
 % Draw random numbers
@@ -581,22 +609,24 @@ for b = 1:B
     end
 
     % Simulate VaR and ES 
-    [VaR, ES, EstPars] = simulate_var_es_univ(r_sim, alpha,'H', H_mc, ...
-                                           'M', Msim, 'dist', 't', ...
+    [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(r_sim, alpha, ...
+                                           'H', H_mc, 'M', Msim, ...
+                                           'dist', 't', ...
                                            'WindLength', WindLength_mc, ...
                                            'ReestFreq', reest_freq_mc, ...
                                            'TruePars', [], 'z_sim', z_sim);
 
     % US and ES test
-    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, alpha(1), ...
-                                   10, WindLength_mc);
-    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, alpha(2), ...
-                                   10, WindLength_mc);
+    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, EmpPITs, ...
+                                   alpha(1), 10, WindLength_mc);
+    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, EmpPITs, ...
+                                   alpha(2), 10, WindLength_mc);
 
     % Collect test results
     GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
                         mean(EstPars.GARCHpars(WindLength_mc+1:end,:)), ...
                         mean(EstPars.margNu(WindLength_mc+1:end,:))];
+    HitRate(b,:)             = [TestRes_0010.HitRate,             TestRes_0025.HitRate];
     UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
     UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
     UC_p_one_sided(b,:)      = [TestRes_0010.UC_p_one_sided,      TestRes_0025.UC_p_one_sided];
@@ -606,12 +636,16 @@ for b = 1:B
     ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
     ES_p_one_sided(b,:)      = [TestRes_0010.ES_p_one_sided,      TestRes_0025.ES_p_one_sided];
     ES_p_two_sided(b,:)      = [TestRes_0010.ES_p_two_sided,      TestRes_0025.ES_p_two_sided];
+    ES_bern_t(b,:)           = [TestRes_0010.ES_bern_t,           TestRes_0025.ES_bern_t];
+    ES_bern_p_one_sided(b,:) = [TestRes_0010.ES_bern_p_one_sided, TestRes_0025.ES_bern_p_one_sided];
+    ES_bern_p_two_sided(b,:) = [TestRes_0010.ES_bern_p_two_sided, TestRes_0025.ES_bern_p_two_sided];
 
     fprintf('Replication %d/%d done\n', b, B);
 
 end
 
 % Pack simulation results
+SimBacktest.HitRate             = HitRate;
 SimBacktest.UC_t                = UC_t;
 SimBacktest.UC_p_one_sided      = UC_p_one_sided;
 SimBacktest.UC_p_two_sided      = UC_p_two_sided;
@@ -621,6 +655,9 @@ SimBacktest.UC_bern_p_two_sided = UC_bern_p_two_sided;
 SimBacktest.ES_t                = ES_t;
 SimBacktest.ES_p_one_sided      = ES_p_one_sided;
 SimBacktest.ES_p_two_sided      = ES_p_two_sided;
+SimBacktest.ES_bern_t           = ES_bern_t;
+SimBacktest.ES_bern_p_one_sided = ES_bern_p_one_sided;
+SimBacktest.ES_bern_p_two_sided = ES_bern_p_two_sided;
 SimBacktest.GARCH_pars          = GARCH_pars;
 SimBacktest.B                   = B;
 SimBacktest.T_sim               = T_sim;
@@ -642,6 +679,7 @@ fprintf('Results saved to %s\n', filename);
 % True parameters
 true_vec = [omega_true, alpha_true, beta_true, nu_true];
 
+HitRate             = NaN(B, 2);
 UC_t                = NaN(B, 2);
 UC_p_one_sided      = NaN(B, 2);
 UC_p_two_sided      = NaN(B, 2);
@@ -651,6 +689,9 @@ UC_bern_p_two_sided = NaN(B, 2);
 ES_t                = NaN(B, 2);
 ES_p_one_sided      = NaN(B, 2);
 ES_p_two_sided      = NaN(B, 2);
+ES_bern_t           = NaN(B, 2);
+ES_bern_p_one_sided = NaN(B, 2);
+ES_bern_p_two_sided = NaN(B, 2);
 GARCH_pars          = NaN(B, 5);
 
 % Draw random numbers
@@ -672,23 +713,25 @@ for b = 1:B
     end
 
     % Simulate VaR and ES 
-    [VaR, ES, EstPars] = simulate_var_es_univ(r_sim, alpha,'H', H_mc, ...
-                                           'M', Msim, 'dist', 't', ...
+    [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(r_sim, alpha, ...
+                                           'H', H_mc, 'M', Msim, ...
+                                           'dist', 't', ...
                                            'WindLength', WindLength_mc, ...
                                            'ReestFreq', reest_freq_mc, ...
                                            'TruePars', true_vec, ...
                                            'z_sim', z_sim);
 
     % US and ES test
-    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, alpha(1), ...
-                                   10, WindLength_mc);
-    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, alpha(2), ...
-                                   10, WindLength_mc);
+    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, EmpPITs, ...
+                                   alpha(1), 10, WindLength_mc);
+    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, EmpPITs, ...
+                                   alpha(2), 10, WindLength_mc);
 
     % Collect test results
     GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
                         mean(EstPars.GARCHpars(WindLength_mc+1:end,:)), ...
                         mean(EstPars.margNu(WindLength_mc+1:end,:))];
+    HitRate(b,:)             = [TestRes_0010.HitRate,             TestRes_0025.HitRate];
     UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
     UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
     UC_p_one_sided(b,:)      = [TestRes_0010.UC_p_one_sided,      TestRes_0025.UC_p_one_sided];
@@ -698,12 +741,16 @@ for b = 1:B
     ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
     ES_p_one_sided(b,:)      = [TestRes_0010.ES_p_one_sided,      TestRes_0025.ES_p_one_sided];
     ES_p_two_sided(b,:)      = [TestRes_0010.ES_p_two_sided,      TestRes_0025.ES_p_two_sided];
+    ES_bern_t(b,:)           = [TestRes_0010.ES_bern_t,           TestRes_0025.ES_bern_t];
+    ES_bern_p_one_sided(b,:) = [TestRes_0010.ES_bern_p_one_sided, TestRes_0025.ES_bern_p_one_sided];
+    ES_bern_p_two_sided(b,:) = [TestRes_0010.ES_bern_p_two_sided, TestRes_0025.ES_bern_p_two_sided];
 
     fprintf('Replication %d/%d done\n', b, B);
 
 end
 
 % Pack simulation results
+SimBacktest.HitRate             = HitRate;
 SimBacktest.UC_t                = UC_t;
 SimBacktest.UC_p_one_sided      = UC_p_one_sided;
 SimBacktest.UC_p_two_sided      = UC_p_two_sided;
@@ -713,6 +760,9 @@ SimBacktest.UC_bern_p_two_sided = UC_bern_p_two_sided;
 SimBacktest.ES_t                = ES_t;
 SimBacktest.ES_p_one_sided      = ES_p_one_sided;
 SimBacktest.ES_p_two_sided      = ES_p_two_sided;
+SimBacktest.ES_bern_t           = ES_bern_t;
+SimBacktest.ES_bern_p_one_sided = ES_bern_p_one_sided;
+SimBacktest.ES_bern_p_two_sided = ES_bern_p_two_sided;
 SimBacktest.GARCH_pars          = GARCH_pars;
 SimBacktest.B                   = B;
 SimBacktest.T_sim               = T_sim;
@@ -729,6 +779,7 @@ filename = sprintf(['Output/SimBacktests/SimBacktest_TruePars_GARCHt_' ...
                     'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
 save(filename, 'SimBacktest');
 fprintf('Results saved to %s\n', filename);
+
 
 
 load('Output/SimBacktests/SimBacktest_TruePars_GARCHt_B500_T5000_H10_M25000.mat')

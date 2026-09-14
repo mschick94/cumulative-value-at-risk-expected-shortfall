@@ -1,4 +1,5 @@
-function [VaR, ES, EstPars] = simulate_var_es_univ(Returns, alpha, varargin)
+function [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(Returns, ...
+                                                         alpha, varargin)
 %SIMULATE_VAR_ES_UNIV Fast simulation of H-step-ahead VaR and ES for
 % univariate GARCH models (K=1) with normal or t innovations.
 %
@@ -15,8 +16,10 @@ function [VaR, ES, EstPars] = simulate_var_es_univ(Returns, alpha, varargin)
 %       'M' : Scalar, number of simulation paths (default: 25000)
 %
 %   OUTPUT:
-%       VaR : (T x P) VaR forecasts, negative values
-%       ES  : (T x P) ES forecasts, negative values
+%       VaR :    (T x P) VaR forecasts, negative values
+%       ES  :    (T x P) ES forecasts, negative values
+%       EmpPits: (T x J) empirical PITs from simulated distribution. 
+%                NaN for t > T-H+1.
 
 % Name-value inputs
 p = inputParser;
@@ -40,6 +43,10 @@ P        = length(alpha);
 
 T         = size(Returns, 1);
 t_start   = WinL + 1;
+
+% Construct actual H-step ahead cumulative PF returns for PITs computation
+CumSum           = cumsum(Returns);
+ActualHStepPFRet = [CumSum(H:T) - [0; CumSum(1:T-H)] ; NaN(H-1,1)];
 
 %%% GARCH estimation
 
@@ -152,8 +159,9 @@ if isempty(z_sim)
 end
 
 % Pre-allocate
-VaR = NaN(T, P);
-ES  = NaN(T, P);
+VaR     = NaN(T, P);
+ES      = NaN(T, P);
+EmpPITs = NaN(T,1);
 
 for t = t_start:T
     % Get parameters
@@ -197,8 +205,14 @@ for t = t_start:T
         VaR(t,pp) = sorted(idx);
         ES(t,pp)  = mean(sorted(1:idx));
     end
-end
 
+    % Compute PITs from simulated distribution
+    if t <= T-H+1
+        ActualCumRet_t = ActualHStepPFRet(t);
+        EmpPITs(t)     = mean(cum_ret <= ActualCumRet_t);
+    end
+
+end
 
 EstPars.GARCHpars = GARCHpars;
 EstPars.mu        = mu;

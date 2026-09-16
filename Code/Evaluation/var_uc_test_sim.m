@@ -33,8 +33,8 @@ xbar = HitRate - alpha;
 [~, se] = hac(ones(T_eval, 1), hitsdiff, 'type', 'HAC', 'Intercept', ...
                                   false, 'bandwidth', H, 'display', 'off');
 UC_t           = xbar / se;
-UC_p_one_sided = 1 - normcdf(UC_t);
-UC_p_two_sided = 2 * (1 - normcdf(abs(UC_t)));
+% UC_p_one_sided = 1 - normcdf(UC_t);
+% UC_p_two_sided = 2 * (1 - normcdf(abs(UC_t)));
 
 
 % Bernoulli-corrected standard error
@@ -42,8 +42,8 @@ acf_hits       = autocorr(hitsdiff, 'NumLags', H);
 var_bern       = alpha * (1 - alpha);
 se_bern        = sqrt((var_bern / T_eval) * (1 + 2*sum(acf_hits(2:end))));
 UC_t_bern      = xbar / se_bern;
-UC_bern_p_one_sided_bern = 1 - normcdf(UC_t_bern);
-UC_bern_p_two_sided_bern = 2 * (1 - normcdf(abs(UC_t_bern)));
+% UC_bern_p_one_sided_bern = 1 - normcdf(UC_t_bern);
+% UC_bern_p_two_sided_bern = 2 * (1 - normcdf(abs(UC_t_bern)));
 
 
 % Du & Escanciano - HAC version
@@ -54,8 +54,8 @@ xbar_es       = mean(xi_centered);
                      'Intercept', false, 'bandwidth', H, 'display', 'off');
 
 ES_reg_t = xbar_es / se_es;
-ES_reg_p_one_sided = normcdf(ES_reg_t);
-ES_reg_p_two_sided = 2 * (1 - normcdf(abs(ES_reg_t)));
+% ES_reg_p_one_sided = 1 - normcdf(ES_reg_t);
+% ES_reg_p_two_sided = 2 * (1 - normcdf(abs(ES_reg_t)));
 
 
 % PIT-based ES test (Du & Escanciano via empirical PITs)
@@ -71,29 +71,35 @@ xbar_h = mean(H_mat);
 % ES_pit_p_two_sided  = 2 * (1 - normcdf(abs(ES_pit_t)));
 
 % Version 2 — Bernoulli corrected with ACF
-acf_h               = autocorr(H_mat, 'NumLags', H);
-HAC_var_bern        = (Var_h / T_eval) * (1 + 2*sum(acf_h(2:end)));
+acf_h               = autocorr(H_mat, 'NumLags', 15);
+HAC_var_bern        = (Var_h / T_eval) * (1 + 2*sum(acf_h(2:10+1)));
 ES_bern_t           = (xbar_h - E_h) / sqrt(HAC_var_bern);
-ES_bern_p_one_sided = normcdf(ES_bern_t);
-ES_bern_p_two_sided = 2 * (1 - normcdf(abs(ES_bern_t)));
+% ES_bern_p_one_sided = 1 - normcdf(ES_bern_t);
+% ES_bern_p_two_sided = 2 * (1 - normcdf(abs(ES_bern_t)));
 
+
+
+% % Or something like this?
+% [~, se_es_alt, ~] = hac(ones(T_eval, 1), H_mat, 'type', 'HAC', ...
+%                      'Intercept', false, 'bandwidth', H, 'display', 'off');
+% ES_t_alt = (xbar_h - E_h) / se_es_alt;
 
 % Pack Output
 TestOut.HitRate             = HitRate;
 TestOut.UC_t                = UC_t;
-TestOut.UC_p_one_sided      = UC_p_one_sided;
-TestOut.UC_p_two_sided      = UC_p_two_sided;
+% TestOut.UC_p_one_sided      = UC_p_one_sided;
+% TestOut.UC_p_two_sided      = UC_p_two_sided;
 TestOut.UC_bern_t           = UC_t_bern;
-TestOut.UC_bern_p_one_sided = UC_bern_p_one_sided_bern;
-TestOut.UC_bern_p_two_sided = UC_bern_p_two_sided_bern;
+% TestOut.UC_bern_p_one_sided = UC_bern_p_one_sided_bern;
+% TestOut.UC_bern_p_two_sided = UC_bern_p_two_sided_bern;
 TestOut.ES_t                = ES_reg_t;
-TestOut.ES_p_one_sided      = ES_reg_p_one_sided;
-TestOut.ES_p_two_sided      = ES_reg_p_two_sided;
+% TestOut.ES_p_one_sided      = ES_reg_p_one_sided;
+% TestOut.ES_p_two_sided      = ES_reg_p_two_sided;
 % TestOut.ES_pit_t            = ES_pit_t;
 % TestOut.ES_pit_p_one_sided  = ES_pit_p_one_sided;
 % TestOut.ES_pit_p_two_sided  = ES_pit_p_two_sided;
 TestOut.ES_bern_t           = ES_bern_t;
-TestOut.ES_bern_p_one_sided = ES_bern_p_one_sided;
-TestOut.ES_bern_p_two_sided = ES_bern_p_two_sided;
+% TestOut.ES_bern_p_one_sided = ES_bern_p_one_sided;
+% TestOut.ES_bern_p_two_sided = ES_bern_p_two_sided;
 
 end

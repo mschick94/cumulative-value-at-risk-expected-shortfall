@@ -243,7 +243,7 @@ for t = t_start:T
             alpha            = GARCHpars(t,2,k);
             beta             = GARCHpars(t,3,k);
             gamma            = GARCHpars(t,4,k); 
-            epsi             = R(t-1,k) - mu(t,k);
+            epsi             = R(t-2,k) - mu(t-1,k);
             I                = epsi < 0;
             H_last(t,k)      = omega + (alpha + I*gamma)*epsi^2 ...
                                + beta*H_last(t-1,k); 

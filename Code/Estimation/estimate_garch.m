@@ -256,7 +256,7 @@ for t = t_start:T
             omega            = GARCHpars(t,1,k);
             alpha            = GARCHpars(t,2,k);
             beta             = GARCHpars(t,3,k);
-            H_last(t,k)      = omega + alpha*(R(t-1,k) - mu(t,k))^2 ...
+            H_last(t,k)      = omega + alpha*(R(t-2,k) - mu(t-1,k))^2 ...
                                + beta*H_last(t-1,k);
             new_res          = (R(t-1,k) - mu(t,k)) / sqrt(H_last(t,k));
             std_res(:,k,t)   = [std_res(2:end,k,t-1); new_res];

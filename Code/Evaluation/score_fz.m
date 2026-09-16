@@ -15,8 +15,8 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 %
 %   INPUTS (required):
 %       VaRES : Struct, output from compute_var_es. Must contain fields:
-%               .VaR        - (T x J x H) VaR forecasts, negative values
-%               .ES         - (T x J x H) ES forecasts, negative values
+%               .VaR        - (T x J x H=1!) VaR forecasts, negative values
+%               .ES         - (T x J x H=1!) ES forecasts, negative values
 %               .Models     - (J x 1) cell array of model names
 %               .alpha      - significance level e.g. 0.025
 %               .PFweights  - (1 x K) portfolio weights
@@ -28,6 +28,12 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 %   INPUTS (optional name-value):
 %       'HEval'       : Vector of forecast horizons to evaluate
 %                       (default: all available horizons)
+%       'alpha_level' : Scalar, VaR and ES level required if multiple
+%                       levels are contained in VaRES
+%                       (default: 1st level in VaRES)
+%       'Models_id'   : Vector of positions of models if only subset of
+%                       models in VaRES are to be evaluated
+%                       (defalut: All models are evaluated)
 %       'DateStart'   : Scalar, start date of evaluation sample
 %                       (default: WindLength + 1)
 %       'DateEnd'     : Scalar, end date of evaluation sample
@@ -35,7 +41,7 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 %       'BlockLength' : Scalar, fixed block length for MCS bootstrap
 %                       (default: data-driven via ACF)
 %       'NBootstrap'  : Scalar, number of bootstrap replications
-%                       (default: 25000)
+%                       (default: 50000)
 %       'Decimals'    : Scalar, decimal places in LaTeX table (default: 2)
 %       'MCSLevel'    : Scalar, confidence level for MCS (default: 0.9)
 %       'PrintTable'  : Logical, display table in command window
@@ -79,16 +85,20 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 % Name-value inputs
 p = inputParser;
 addParameter(p, 'HEval',       []); % default is all horizons provided
+addParameter(p, 'alpha_level', []);
+addParameter(p, 'Models_id',   []);
 addParameter(p, 'DateStart',   []);
 addParameter(p, 'DateEnd',     []);
 addParameter(p, 'BlockLength', []);
-addParameter(p, 'NBootstrap',  25000);
+addParameter(p, 'NBootstrap',  50000);
 addParameter(p, 'Decimals',    2);
-addParameter(p, 'MCSLevel',    0.2);
+addParameter(p, 'MCSLevel',    0.1);
 addParameter(p, 'PrintTable',  true);
 parse(p, varargin{:});
 
 HEval       = p.Results.HEval;
+alpha_level = p.Results.alpha_level;
+Models_id   = p.Results.Models_id;
 DateStart   = p.Results.DateStart;
 DateEnd     = p.Results.DateEnd;
 BlockLength = p.Results.BlockLength;
@@ -109,23 +119,30 @@ T          = size(dates,1);
 % Compute actual PF returns
 ActualPFRet = R * PFweights;
 
-% Forecast horizons to evaluate (default is 1, ..., H)
-n_h = size(VaRES.VaR, 3);   % 1 or H depending on what was stored
+% % Forecast horizons to evaluate (default is 1, ..., H)
+% n_h = size(VaRES.VaR, 3);   % 1 or H depending on what was stored
+% 
+% if isempty(HEval)
+%     if n_h == 1
+%         HEval = VaRES.H;    % only h=H stored, evaluate at h=H
+%     else
+%         HEval = 1:n_h;      % full term structure stored, evaluate all
+%     end                     % otherwise, horizons provided in vector HEval 
+% end
+% 
+% if any(HEval > VaRES.H)
+%     warning(['score_fz: HEval contains horizons exceeding H=%d ' ...
+%              '— clipping to H'], VaRES.H);
+%     HEval = HEval(HEval <= VaRES.H);
+% end
+% Hlength = max(size(HEval));
 
+% ONLY h = H used in this project so far; can be made flexible again later!
 if isempty(HEval)
-    if n_h == 1
-        HEval = VaRES.H;    % only h=H stored, evaluate at h=H
-    else
-        HEval = 1:n_h;      % full term structure stored, evaluate all
-    end                     % otherwise, horizons provided in vector HEval 
+    HEval = VaRES.H;
 end
-
-if any(HEval > VaRES.H)
-    warning(['score_fz: HEval contains horizons exceeding H=%d ' ...
-             '— clipping to H'], VaRES.H);
-    HEval = HEval(HEval <= VaRES.H);
-end
-Hlength = max(size(HEval));
+Hlength = 1; % Only one horizon provided to this function!
+n_h     = 1;
 
 % Cumulative PF returns up to max horizon needed
 H_max          = max(HEval);
@@ -135,12 +152,31 @@ for h = 1:H_max
     CumActualPFRet(1:T-h+1, h) = CumSum(h:T) - [0; CumSum(1:T-h)];
 end
 
-% Read out model forecasts of VaR and ES
-VaRmat = VaRES.VaR;
-ESmat  = VaRES.ES;
+% Read out VaR and ES level
+if isempty(alpha_level)
+    alpha_test = alpha(1);
+    alpha_ind  = 1;
+else
+    alpha_ind  = find(alpha_level == alpha);
+    alpha_test = alpha(alpha_ind);
+end
+
+if isempty(alpha_ind)
+    error('score_fz: alpha level not found in estimation results');
+end
+
+% Read out model forecasts of VaR and ES at alpha_test level
+if isempty(Models_id)
+    Models_id = 1:J;
+else
+    J = length(Models_id);
+end
+VaRmat = VaRES.VaR(:, Models_id, alpha_ind);
+ESmat  = VaRES.ES(:, Models_id, alpha_ind);
+
 
 % Compute FZ losses from Patton et al. (2019) for specified horizons h
-LossMat = NaN(T, J, Hlength);
+LossMat = NaN(T, J, Hlength); % same as NaN(T, J); 
 for i = 1:Hlength
 
     h = HEval(i);         % actual forecast horizon
@@ -156,7 +192,7 @@ for i = 1:Hlength
     VaRNegidx      = ActualCumPFRet <= hStepVaRmat;
     IndVaRMinusRet = VaRNegidx .* (hStepVaRmat - ActualCumPFRet);
 
-    FirstSum  = - 1/alpha * IndVaRMinusRet ./ hStepESmat;
+    FirstSum  = - 1/alpha_test * IndVaRMinusRet ./ hStepESmat;
     SecondSum = hStepVaRmat ./ hStepESmat + log(-hStepESmat) - 1;
 
     % Overall loss
@@ -229,23 +265,23 @@ end
 % Compute average losses per horizon h and construct LaTeX formatted table
 meanLosses = reshape(mean(LossMat, 1), J, Hlength);  
 FZEvalTable.LaTeX = print_latex_losses(meanLosses, includedMCS, ...
-    ModelNames, HEval, Decimals, PrintTable);
+    ModelNames(Models_id), HEval, Decimals, PrintTable);
 
 % Numeric summary table
-h_col_names        = arrayfun(@(h) sprintf('h%d', h), HEval, ...
-                                           'UniformOutput', false);
-NumericTab         = array2table(meanLosses, 'RowNames', ModelNames, ...
-                                 'VariableNames', h_col_names);
+h_col_names = arrayfun(@(h) sprintf('h%d', h), HEval, ...
+                                    'UniformOutput', false);
+NumericTab = array2table(meanLosses, 'RowNames', ModelNames(Models_id), ...
+                         'VariableNames', h_col_names);
 FZEvalTable.Losses = NumericTab;
 
 % Pack additional information
-FZEvalTable.alpha      = alpha;
-FZEvalTable.PFweights  = PFweights;
-FZEvalTable.WindLength = WindLength;
-FZEvalTable.T_eval     = T_eval;
-FZEvalTable.dates_eval = dates_eval;
-FZEvalTable.assets     = VaRES.assets;
-FZEvalTable.H          = HEval;
+FZEvalTable.alpha_level = alpha_test;
+FZEvalTable.PFweights   = PFweights;
+FZEvalTable.WindLength  = WindLength;
+FZEvalTable.T_eval      = T_eval;
+FZEvalTable.dates_eval  = dates_eval;
+FZEvalTable.assets      = VaRES.assets;
+FZEvalTable.H           = HEval;
 
 end
 

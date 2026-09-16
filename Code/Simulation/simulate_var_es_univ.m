@@ -137,7 +137,7 @@ for t = t_start:T
         omega           = GARCHpars(t, 1);
         alpha_g         = GARCHpars(t, 2);
         beta            = GARCHpars(t, 3);
-        eps2            = (Returns(t-1) - mu(t-1))^2; 
+        eps2            = (Returns(t-2) - mu(t-1))^2; 
         H_last(t)       = omega + alpha_g*eps2 + beta*H_last(t-1);
     end
 end
@@ -177,37 +177,72 @@ for t = t_start:T
             else
                 rng(1)
                 nu_t = margNu(t, 1);
-                z_t  = trnd(nu_t, H, M) / sqrt(nu_t/(nu_t-2));
+                z_t  = trnd(nu_t, M, H) / sqrt(nu_t/(nu_t-2)); % switched M and H
             end
     end
 
+    % % Simulate H-step ahead returns
+    % omega = pars(1);
+    % alpha_g = pars(2);
+    % beta  = pars(3);
+    % h     = omega + alpha_g*(Returns(t-1,1) - mu(t,1))^2 + beta*H_last(t,1);
+    % r_sim = NaN(H, M);
+    % for j = 1:H
+    %     r_sim(j,:) = mu(t,1) + sqrt(h) .* z_t(j,:);
+    %     if j < H
+    %         eps2 = (r_sim(j,:) - mu(t,1)).^2;
+    %         h    = omega + alpha_g*eps2 + beta*h;
+    %     end
+    % end
+    % 
+    % % Cumulative return at h=H
+    % cum_ret  = sum(r_sim, 1);   % (1 x M)
+    % sorted   = sort(cum_ret);
+    % 
+    % % VaR and ES per alpha level
+    % for pp = 1:P
+    %     idx       = max(1, floor(alpha(pp) * M));
+    %     VaR(t,pp) = sorted(idx);
+    %     ES(t,pp)  = mean(sorted(1:idx));
+    % end
+    % 
+    % % Compute PITs from simulated distribution
+    % if t <= T-H+1
+    %     ActualCumRet_t = ActualHStepPFRet(t);
+    %     EmpPITs(t)     = mean(cum_ret <= ActualCumRet_t);
+    % end
+
     % Simulate H-step ahead returns
-    omega = pars(1);
+    omega   = pars(1);
     alpha_g = pars(2);
-    beta  = pars(3);
-    h     = omega + alpha_g*(Returns(t-1,1) - mu(t,1))^2 + beta*H_last(t,1);
-    r_sim = NaN(H, M);
+    beta    = pars(3);
+    h       = omega + alpha_g*(Returns(t-1,1) - mu(t,1))^2 + beta*H_last(t,1);
+    r_sim   = NaN(M, H);   % (M x H)
+
     for j = 1:H
-        r_sim(j,:) = mu(t,1) + sqrt(h) .* z_t(j,:);
+        r_sim(:,j) = mu(t,1) + sqrt(h) .* z_t(:,j);   % z_t is (M x H)
         if j < H
-            eps2 = (r_sim(j,:) - mu(t,1)).^2;
-            h    = omega + alpha_g*eps2 + beta*h;
+            eps2 = (r_sim(:,j) - mu(t,1)).^2;          % (M x 1)
+            h    = omega + alpha_g*eps2 + beta*h;      % (M x 1)
         end
     end
-
+    
     % Cumulative return at h=H
-    cum_ret  = sum(r_sim, 1);   % (1 x M)
-    sorted   = sort(cum_ret);
-
-    % VaR and ES per alpha level
+    cum_ret  = sum(r_sim, 2);   % (M x 1) sum over H columns
+    % sorted   = sort(cum_ret);   % (M x 1) ascending
+    
+    % for pp = 1:P
+    %     idx        = max(1, floor(alpha(pp) * M));
+    %     VaR(t,pp)  = sorted(idx);
+    %     ES(t,pp)   = mean(sorted(1:idx));
+    % end
+    VaR(t,:)  = quantile(cum_ret,alpha);
     for pp = 1:P
-        idx       = max(1, floor(alpha(pp) * M));
-        VaR(t,pp) = sorted(idx);
-        ES(t,pp)  = mean(sorted(1:idx));
+        ES(t,pp)   = mean(cum_ret(cum_ret<VaR(t,pp)));
     end
 
-    % Compute PITs from simulated distribution
-    if t <= T-H+1
+    % EmpPITs
+    if ~isempty(ActualHStepPFRet)
         ActualCumRet_t = ActualHStepPFRet(t);
         EmpPITs(t)     = mean(cum_ret <= ActualCumRet_t);
     end

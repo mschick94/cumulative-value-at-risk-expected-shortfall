@@ -290,12 +290,12 @@ for t = t_start:T
             omega            = HEAVY_r_pars(t,1,k);
             alpha            = HEAVY_r_pars(t,2,k);
             beta             = HEAVY_r_pars(t,3,k);
-            H_last(t,k)      = omega + alpha*RVs(t-1,k) ...
+            H_last(t,k)      = omega + alpha*RVs(t-2,k) ...
                                + beta*H_last(t-1,k);
             omega_rv         = HEAVY_RV_pars(t,1,k);
             alpha_rv         = HEAVY_RV_pars(t,2,k);
             beta_rv          = HEAVY_RV_pars(t,3,k);   
-            Tau_last(t,k)    = omega_rv + alpha_rv*RVs(t-1,k) ...
+            Tau_last(t,k)    = omega_rv + alpha_rv*RVs(t-2,k) ...
                                + beta_rv*Tau_last(t-1,k);           
             new_res          = (R(t-1,k) - mu(t,k)) / sqrt(H_last(t,k));
             std_res(:,k,t)   = [std_res(2:end,k,t-1); new_res];

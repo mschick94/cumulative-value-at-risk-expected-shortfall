@@ -38,9 +38,9 @@ UC_t           = xbar / se;
 
 
 % Bernoulli-corrected standard error
-acf_hits       = autocorr(hitsdiff, 'NumLags', H);
+acf_hits       = autocorr(hitsdiff, 'NumLags', 15);
 var_bern       = alpha * (1 - alpha);
-se_bern        = sqrt((var_bern / T_eval) * (1 + 2*sum(acf_hits(2:end))));
+se_bern        = sqrt((var_bern / T_eval) * (1 + 2*sum(acf_hits(2:10+1))));
 UC_t_bern      = xbar / se_bern;
 % UC_bern_p_one_sided_bern = 1 - normcdf(UC_t_bern);
 % UC_bern_p_two_sided_bern = 2 * (1 - normcdf(abs(UC_t_bern)));
@@ -82,7 +82,7 @@ ES_bern_t           = (xbar_h - E_h) / sqrt(HAC_var_bern);
 % % Or something like this?
 % [~, se_es_alt, ~] = hac(ones(T_eval, 1), H_mat, 'type', 'HAC', ...
 %                      'Intercept', false, 'bandwidth', H, 'display', 'off');
-% ES_t_alt = (xbar_h - E_h) / se_es_alt;
+% ES_t_HAC = (xbar_h - E_h) / se_es_alt;
 
 % Pack Output
 TestOut.HitRate             = HitRate;

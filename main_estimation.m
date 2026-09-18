@@ -333,6 +333,7 @@ VaRandES.ES  = squeeze(VaRandES.ES);
 
 %%%% Fissler-Ziegel loss function for model comparison
 ModelEval = [1, 5, 6, 9, 3, 21, 22, 23, 24, 25, 10];
+ModelEval = [1, 5, 6, 9, 3, 21, 22, 23, 24, 25];
 
 % Fissler-Ziegel (FZ) loss and Model Confidence Set of 1% VaR and ES
 MCSTable_0010 = score_fz(VaRandES, R, 'HEval', 10, ...
@@ -365,7 +366,7 @@ alpha_true = 0.03;
 beta_true  = 0.95;
 nu_true    = 5;
 
-B     = 500;
+B     = 1000;
 Msim  = 25000;
 H_mc  = 10;
 alpha = [0.01, 0.025];
@@ -374,424 +375,124 @@ alpha = [0.01, 0.025];
 WindLength_mc = 1000;
 reest_freq_mc = 250;
 
-HitRate             = NaN(B, 2);
-UC_t                = NaN(B, 2);
-UC_bern_t           = NaN(B, 2);
-ES_t                = NaN(B, 2);
-ES_bern_t           = NaN(B, 2);
-GARCH_pars          = NaN(B, 4);
+% % GARCH-N with estimated parameters
+% TruePars  = [omega_true, alpha_true, beta_true, nu_true];
+% BackTestSimulation(TruePars, 'T_sim', T_sim, 'M_sim', Msim, 'H', H_mc, ...
+%                    'B_sim', B, 'alpha', alpha, 'dist', 'norm', ...
+%                    'EstPars', true, 'WindLength_mc', WindLength_mc, ...
+%                    'reest_freq_mc', reest_freq_mc);
+% 
+% % GARCH-N with true parameters
+% TruePars  = [omega_true, alpha_true, beta_true, nu_true];
+% BackTestSimulation(TruePars, 'T_sim', T_sim, 'M_sim', Msim, 'H', H_mc, ...
+%                    'B_sim', B, 'alpha', alpha, 'dist', 'norm', ...
+%                    'EstPars', false, 'WindLength_mc', WindLength_mc, ...
+%                    'reest_freq_mc', reest_freq_mc);
+
+
+
+% load('Output/SimBacktests/SimBacktest_EstPars_GARCHN_B1000_T5000_H10_M25000_Server.mat')
+% B=1000;
+% 
+% mean(SimBacktest.UC_t(1:B,:) > 1.645)
+% mean(abs(SimBacktest.UC_t(1:B,:)) > 1.96)
+% 
+% % mean(SimBacktest.UC_bern_t(1:B,:) > 1.645)
+% % mean(abs(SimBacktest.UC_bern_t(1:B,:)) > 1.96)
+% 
+% mean(SimBacktest.ES_t(1:B,:) > 1.645)
+% mean(abs(SimBacktest.ES_t(1:B,:)) > 1.96)
+% 
+% mean(SimBacktest.ES_bern_t(1:B,:) > 1.645)
+% mean(abs(SimBacktest.ES_bern_t(1:B,:)) > 1.96)
+% 
+% figure
+% histogram(SimBacktest.UC_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('1% UC t-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+% 
+% figure
+% histogram(SimBacktest.UC_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('2.5% UC t-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+% 
+% figure
+% histogram(SimBacktest.UC_bern_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('1% UC-Bernoulli t-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+% 
+% figure
+% histogram(SimBacktest.UC_bern_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('2.5% UC-Bernoulli t-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+% 
+% 
+% figure
+% histogram(SimBacktest.ES_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('1% ES t-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+% 
+% figure
+% histogram(SimBacktest.ES_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('2.5% ES t-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+% 
+% 
+% figure
+% histogram(SimBacktest.ES_bern_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('1% ES Bernoulli-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
+% 
+% figure
+% histogram(SimBacktest.ES_bern_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
+% hold on
+% x_range = linspace(-5, 5, 1000);
+% plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
+% xline(0, 'k--', 'LineWidth', 1.5)
+% xlabel('t-statistic')
+% ylabel('Density')
+% title('2.5% ES Bernoulli-statistics vs Standard Normal')
+% legend('Simulated', 'N(0,1)', 'Location', 'northwest')
 
-% Draw random numbers
-rng(1)
-z_sim = randn(Msim, H_mc);
-
-for b = 1:B
-
-    % Simulate GARCH(1,1)-Normal
-    rng(b)
-    r_sim    = NaN(T_sim, 1);
-    h_sim    = NaN(T_sim, 1);
-    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
-    r_sim(1) = sqrt(h_sim(1)) * randn;
-    for t = 2:T_sim
-        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 ...
-                   + beta_true*h_sim(t-1);
-        r_sim(t) = sqrt(h_sim(t)) * randn;
-    end
-
-    % Simulate VaR and ES 
-    [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(r_sim, alpha, ...
-                                           'H', H_mc, 'M', Msim, ...
-                                           'WindLength', WindLength_mc, ...
-                                           'ReestFreq', reest_freq_mc, ...
-                                           'TruePars', [], 'z_sim', z_sim);
-
-    % US and ES test
-    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, EmpPITs, ...
-                                   alpha(1), 10, WindLength_mc);
-    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, EmpPITs, ...
-                                   alpha(2), 10, WindLength_mc);
-
-    % Collect test results
-    GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
-                        mean(EstPars.GARCHpars(WindLength_mc+1:end,:))];
-    HitRate(b,:)             = [TestRes_0010.HitRate,   TestRes_0025.HitRate];
-    UC_t(b,:)                = [TestRes_0010.UC_t,      TestRes_0025.UC_t];
-    UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t, TestRes_0025.UC_bern_t];
-    ES_t(b,:)                = [TestRes_0010.ES_t,      TestRes_0025.ES_t];
-    ES_bern_t(b,:)           = [TestRes_0010.ES_bern_t, TestRes_0025.ES_bern_t];
-
-    fprintf('Replication %d/%d done\n', b, B);
-
-end
-
-% Pack simulation results
-SimBacktest.HitRate             = HitRate;
-SimBacktest.UC_t                = UC_t;
-SimBacktest.UC_bern_t           = UC_bern_t;
-SimBacktest.ES_t                = ES_t;
-SimBacktest.ES_bern_t           = ES_bern_t;
-SimBacktest.GARCH_pars          = GARCH_pars;
-SimBacktest.B                   = B;
-SimBacktest.T_sim               = T_sim;
-SimBacktest.H_mc                = H_mc;
-SimBacktest.Msim                = Msim;
-SimBacktest.WindLength_mc       = WindLength_mc;
-SimBacktest.reest_freq_mc       = reest_freq_mc;
-SimBacktest.omega_true          = omega_true;
-SimBacktest.alpha_true          = alpha_true;
-SimBacktest.beta_true           = beta_true;
-SimBacktest.alpha               = alpha;
-
-filename = sprintf(['Output/SimBacktests/SimBacktest_EstPars_GARCHN_' ...
-                    'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
-save(filename, 'SimBacktest');
-fprintf('Results saved to %s\n', filename);
-
-
-% True parameters
-true_vec = [omega_true, alpha_true, beta_true];
-
-HitRate             = NaN(B, 2);
-UC_t                = NaN(B, 2);
-UC_bern_t           = NaN(B, 2);
-ES_t                = NaN(B, 2);
-ES_bern_t           = NaN(B, 2);
-GARCH_pars          = NaN(B, 4);
-
-% Draw random numbers
-rng(1)
-z_sim = randn(Msim, H_mc);
-
-for b = 1:B
-
-    % Simulate GARCH(1,1)-Normal
-    rng(b)
-    r_sim    = NaN(T_sim, 1);
-    h_sim    = NaN(T_sim, 1);
-    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
-    r_sim(1) = sqrt(h_sim(1)) * randn;
-    for t = 2:T_sim
-        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 ...
-                   + beta_true*h_sim(t-1);
-        r_sim(t) = sqrt(h_sim(t)) * randn;
-    end
-
-    % Simulate VaR and ES 
-    [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(r_sim, alpha, ...
-                                           'H', H_mc, 'M', Msim, ...
-                                           'WindLength', WindLength_mc, ...
-                                           'ReestFreq', reest_freq_mc, ...
-                                           'TruePars', true_vec, ...
-                                           'z_sim', z_sim);
-
-    % US and ES test
-    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, EmpPITs, ...
-                                   alpha(1), 10, WindLength_mc);
-    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, EmpPITs, ...
-                                   alpha(2), 10, WindLength_mc);
-
-    % Collect test results
-    GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
-                        mean(EstPars.GARCHpars(WindLength_mc+1:end,:))];
-    HitRate(b,:)             = [TestRes_0010.HitRate,             TestRes_0025.HitRate];
-    UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
-    UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
-    ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
-    ES_bern_t(b,:)           = [TestRes_0010.ES_bern_t,           TestRes_0025.ES_bern_t];
-
-    fprintf('Replication %d/%d done\n', b, B);
-
-end
-
-% Pack simulation results
-SimBacktest.HitRate             = HitRate;
-SimBacktest.UC_t                = UC_t;
-SimBacktest.UC_bern_t           = UC_bern_t;
-SimBacktest.ES_t                = ES_t;
-SimBacktest.ES_bern_t           = ES_bern_t;
-SimBacktest.GARCH_pars          = GARCH_pars;
-SimBacktest.B                   = B;
-SimBacktest.T_sim               = T_sim;
-SimBacktest.H_mc                = H_mc;
-SimBacktest.Msim                = Msim;
-SimBacktest.WindLength_mc       = WindLength_mc;
-SimBacktest.reest_freq_mc       = reest_freq_mc;
-SimBacktest.omega_true          = omega_true;
-SimBacktest.alpha_true          = alpha_true;
-SimBacktest.beta_true           = beta_true;
-SimBacktest.alpha               = alpha;
-
-filename = sprintf(['Output/SimBacktests/SimBacktest_TruePars_GARCHN_' ...
-                    'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
-save(filename, 'SimBacktest');
-fprintf('Results saved to %s\n', filename);
-
-
-% Monte Carlo - GARCH-t
-HitRate             = NaN(B, 2);
-UC_t                = NaN(B, 2);
-UC_bern_t           = NaN(B, 2);
-ES_t                = NaN(B, 2);
-ES_bern_t           = NaN(B, 2);
-GARCH_pars          = NaN(B, 5);
-
-% Draw random numbers
-rng(1)
-z_sim = trnd(nu_true, Msim, H_mc) / sqrt(nu_true/(nu_true-2));
-
-for b = 1:B
-
-    % Simulate GARCH(1,1)-t
-    rng(b)
-    % Pre-draw all innovations
-    z_t = trnd(nu_true, T_sim, 1) / sqrt(nu_true/(nu_true-2));
-    
-    r_sim    = NaN(T_sim, 1);
-    h_sim    = NaN(T_sim, 1);
-    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
-    r_sim(1) = sqrt(h_sim(1)) * z_t(1);
-    for t = 2:T_sim
-        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 ...
-                   + beta_true*h_sim(t-1);
-        r_sim(t) = sqrt(h_sim(t)) * z_t(t);
-    end
-
-    % Simulate VaR and ES 
-    [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(r_sim, alpha, ...
-                                           'H', H_mc, 'M', Msim, ...
-                                           'dist', 't', ...
-                                           'WindLength', WindLength_mc, ...
-                                           'ReestFreq', reest_freq_mc, ...
-                                           'TruePars', [], 'z_sim', z_sim);
-
-    % US and ES test
-    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, EmpPITs, ...
-                                   alpha(1), 10, WindLength_mc);
-    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, EmpPITs, ...
-                                   alpha(2), 10, WindLength_mc);
-
-    % Collect test results
-    GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
-                        mean(EstPars.GARCHpars(WindLength_mc+1:end,:)), ...
-                        mean(EstPars.margNu(WindLength_mc+1:end,:))];
-    HitRate(b,:)             = [TestRes_0010.HitRate,   TestRes_0025.HitRate];
-    UC_t(b,:)                = [TestRes_0010.UC_t,      TestRes_0025.UC_t];
-    UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t, TestRes_0025.UC_bern_t];
-    ES_t(b,:)                = [TestRes_0010.ES_t,      TestRes_0025.ES_t];
-    ES_bern_t(b,:)           = [TestRes_0010.ES_bern_t, TestRes_0025.ES_bern_t];
-
-    fprintf('Replication %d/%d done\n', b, B);
-
-end
-
-% Pack simulation results
-SimBacktest.HitRate             = HitRate;
-SimBacktest.UC_t                = UC_t;
-SimBacktest.UC_bern_t           = UC_bern_t;
-SimBacktest.ES_t                = ES_t;
-SimBacktest.ES_bern_t           = ES_bern_t;
-SimBacktest.GARCH_pars          = GARCH_pars;
-SimBacktest.B                   = B;
-SimBacktest.T_sim               = T_sim;
-SimBacktest.H_mc                = H_mc;
-SimBacktest.Msim                = Msim;
-SimBacktest.WindLength_mc       = WindLength_mc;
-SimBacktest.reest_freq_mc       = reest_freq_mc;
-SimBacktest.omega_true          = omega_true;
-SimBacktest.alpha_true          = alpha_true;
-SimBacktest.beta_true           = beta_true;
-SimBacktest.alpha               = alpha;
-
-filename = sprintf(['Output/SimBacktests/SimBacktest_EstPars_GARCHtaaa_' ...
-                    'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
-save(filename, 'SimBacktest');
-fprintf('Results saved to %s\n', filename);
-
-
-% True parameters
-true_vec = [omega_true, alpha_true, beta_true, nu_true];
-
-HitRate             = NaN(B, 2);
-UC_t                = NaN(B, 2);
-UC_bern_t           = NaN(B, 2);
-ES_t                = NaN(B, 2);
-ES_bern_t           = NaN(B, 2);
-GARCH_pars          = NaN(B, 5);
-
-% Draw random numbers
-rng(1)
-z_sim = trnd(nu_true, Msim, H_mc) / sqrt(nu_true/(nu_true-2));
-
-for b = 1:B
-
-    % Simulate GARCH(1,1)-t
-    rng(b)
-    r_sim    = NaN(T_sim, 1);
-    h_sim    = NaN(T_sim, 1);
-    h_sim(1) = omega_true / (1 - alpha_true - beta_true);
-    r_sim(1) = sqrt(h_sim(1)) * trnd(nu_true) / sqrt(nu_true/(nu_true-2));
-    for t = 2:T_sim
-        h_sim(t) = omega_true + alpha_true*r_sim(t-1)^2 ...
-                   + beta_true*h_sim(t-1);
-        r_sim(t) = sqrt(h_sim(t))*trnd(nu_true)/sqrt(nu_true/(nu_true-2));
-    end
-
-    % Simulate VaR and ES 
-    [VaR, ES, EmpPITs, EstPars] = simulate_var_es_univ(r_sim, alpha, ...
-                                           'H', H_mc, 'M', Msim, ...
-                                           'dist', 't', ...
-                                           'WindLength', WindLength_mc, ...
-                                           'ReestFreq', reest_freq_mc, ...
-                                           'TruePars', true_vec, ...
-                                           'z_sim', z_sim);
-
-    % US and ES test
-    TestRes_0010 = var_uc_test_sim(VaR(:,1), ES(:,1), r_sim, EmpPITs, ...
-                                   alpha(1), 10, WindLength_mc);
-    TestRes_0025 = var_uc_test_sim(VaR(:,2), ES(:,2), r_sim, EmpPITs, ...
-                                   alpha(2), 10, WindLength_mc);
-
-    % Collect test results
-    GARCH_pars(b, :) = [mean(EstPars.mu(WindLength_mc+1:end)), ...
-                        mean(EstPars.GARCHpars(WindLength_mc+1:end,:)), ...
-                        mean(EstPars.margNu(WindLength_mc+1:end,:))];
-    HitRate(b,:)             = [TestRes_0010.HitRate,             TestRes_0025.HitRate];
-    UC_t(b,:)                = [TestRes_0010.UC_t,                TestRes_0025.UC_t];
-    UC_bern_t(b,:)           = [TestRes_0010.UC_bern_t,           TestRes_0025.UC_bern_t];
-    ES_t(b,:)                = [TestRes_0010.ES_t,                TestRes_0025.ES_t];
-    ES_bern_t(b,:)           = [TestRes_0010.ES_bern_t,           TestRes_0025.ES_bern_t];
-
-    fprintf('Replication %d/%d done\n', b, B);
-
-end
-
-% Pack simulation results
-SimBacktest.HitRate             = HitRate;
-SimBacktest.UC_t                = UC_t;
-SimBacktest.UC_bern_t           = UC_bern_t;
-SimBacktest.ES_t                = ES_t;
-SimBacktest.ES_bern_t           = ES_bern_t;
-SimBacktest.GARCH_pars          = GARCH_pars;
-SimBacktest.B                   = B;
-SimBacktest.T_sim               = T_sim;
-SimBacktest.H_mc                = H_mc;
-SimBacktest.Msim                = Msim;
-SimBacktest.WindLength_mc       = WindLength_mc;
-SimBacktest.reest_freq_mc       = reest_freq_mc;
-SimBacktest.omega_true          = omega_true;
-SimBacktest.alpha_true          = alpha_true;
-SimBacktest.beta_true           = beta_true;
-SimBacktest.alpha               = alpha;
-
-filename = sprintf(['Output/SimBacktests/SimBacktest_TruePars_GARCHt_' ...
-                    'B%d_T%d_H%d_M%d.mat'], B, T_sim, H_mc, Msim);
-save(filename, 'SimBacktest');
-fprintf('Results saved to %s\n', filename);
-
-
-
-load('Output/SimBacktests/SimBacktest_EstPars_GARCHN_B500_T5000_H10_M25000_Server.mat')
-B=500;
-
-mean(SimBacktest.UC_t(1:B,:) > 1.645)
-mean(abs(SimBacktest.UC_t(1:B,:)) > 1.96)
-
-% mean(SimBacktest.UC_bern_t(1:B,:) > 1.645)
-% mean(abs(SimBacktest.UC_bern_t(1:B,:)) > 1.96)
-
-mean(SimBacktest.ES_t(1:B,:) > 1.645)
-mean(abs(SimBacktest.ES_t(1:B,:)) > 1.96)
-
-mean(SimBacktest.ES_bern_t(1:B,:) > 1.645)
-mean(abs(SimBacktest.ES_bern_t(1:B,:)) > 1.96)
-
-figure
-histogram(SimBacktest.UC_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
-hold on
-x_range = linspace(-5, 5, 1000);
-plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
-xline(0, 'k--', 'LineWidth', 1.5)
-xlabel('t-statistic')
-ylabel('Density')
-title('1% UC t-statistics vs Standard Normal')
-legend('Simulated', 'N(0,1)', 'Location', 'northwest')
-
-figure
-histogram(SimBacktest.UC_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
-hold on
-x_range = linspace(-5, 5, 1000);
-plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
-xline(0, 'k--', 'LineWidth', 1.5)
-xlabel('t-statistic')
-ylabel('Density')
-title('2.5% UC t-statistics vs Standard Normal')
-legend('Simulated', 'N(0,1)', 'Location', 'northwest')
-
-figure
-histogram(SimBacktest.UC_bern_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
-hold on
-x_range = linspace(-5, 5, 1000);
-plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
-xline(0, 'k--', 'LineWidth', 1.5)
-xlabel('t-statistic')
-ylabel('Density')
-title('1% UC-Bernoulli t-statistics vs Standard Normal')
-legend('Simulated', 'N(0,1)', 'Location', 'northwest')
-
-figure
-histogram(SimBacktest.UC_bern_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
-hold on
-x_range = linspace(-5, 5, 1000);
-plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
-xline(0, 'k--', 'LineWidth', 1.5)
-xlabel('t-statistic')
-ylabel('Density')
-title('2.5% UC-Bernoulli t-statistics vs Standard Normal')
-legend('Simulated', 'N(0,1)', 'Location', 'northwest')
-
-
-figure
-histogram(SimBacktest.ES_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
-hold on
-x_range = linspace(-5, 5, 1000);
-plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
-xline(0, 'k--', 'LineWidth', 1.5)
-xlabel('t-statistic')
-ylabel('Density')
-title('1% ES t-statistics vs Standard Normal')
-legend('Simulated', 'N(0,1)', 'Location', 'northwest')
-
-figure
-histogram(SimBacktest.ES_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
-hold on
-x_range = linspace(-5, 5, 1000);
-plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
-xline(0, 'k--', 'LineWidth', 1.5)
-xlabel('t-statistic')
-ylabel('Density')
-title('2.5% ES t-statistics vs Standard Normal')
-legend('Simulated', 'N(0,1)', 'Location', 'northwest')
-
-
-figure
-histogram(SimBacktest.ES_bern_t(:,1), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
-hold on
-x_range = linspace(-5, 5, 1000);
-plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
-xline(0, 'k--', 'LineWidth', 1.5)
-xlabel('t-statistic')
-ylabel('Density')
-title('1% ES Bernoulli-statistics vs Standard Normal')
-legend('Simulated', 'N(0,1)', 'Location', 'northwest')
-
-figure
-histogram(SimBacktest.ES_bern_t(:,2), 'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
-hold on
-x_range = linspace(-5, 5, 1000);
-plot(x_range, normpdf(x_range), 'r-', 'LineWidth', 2)
-xline(0, 'k--', 'LineWidth', 1.5)
-xlabel('t-statistic')
-ylabel('Density')
-title('2.5% ES Bernoulli-statistics vs Standard Normal')
-legend('Simulated', 'N(0,1)', 'Location', 'northwest')

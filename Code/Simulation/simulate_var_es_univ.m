@@ -100,11 +100,11 @@ EstMean = true; % Always estimate mean of returns
 
 switch dist
     case 'norm'
-        A          = [     0,      1,      1];
-        b          =  1-epsi;
-        lb         = [     0;      0;      0];
-        ub         = [   Inf; 1-epsi; 1-epsi];
-        start      = [  0.05,   0.05,    0.9];
+        A     = [     0,      1,      1];
+        b     =  1-epsi;
+        lb    = [     0;      0;      0];
+        ub    = [   Inf; 1-epsi; 1-epsi];
+        start = [  0.05,   0.05,    0.9];
      
         for i = reest_dates
             r = Returns(i-WinL:i-1);
@@ -127,11 +127,11 @@ switch dist
         end
 
     case 't'
-        A          = [     0,      1,      1,    0];
-        b          =  1-epsi;
-        lb         = [     0;      0;      0;  2.2];
-        ub         = [   Inf; 1-epsi; 1-epsi; 1000];
-        start      = [  0.05,   0.05,    0.9,    5];       
+        A     = [     0,      1,      1,    0];
+        b     =  1-epsi;
+        lb    = [     0;      0;      0;  2.2];
+        ub    = [   Inf; 1-epsi; 1-epsi; 1000];
+        start = [  0.05,   0.05,    0.9,    5];       
 
         for i = reest_dates
             r = Returns(i-WinL:i-1);
@@ -234,7 +234,7 @@ for t = t_start:T
     % end
     VaR(t,:) = quantile(cum_ret,alpha);
     for pp = 1:P
-        ES(t,pp)   = mean(cum_ret(cum_ret<VaR(t,pp)));
+        ES(t,pp) = mean(cum_ret(cum_ret<VaR(t,pp)));
     end
 
     % EmpPITs

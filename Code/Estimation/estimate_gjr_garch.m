@@ -19,7 +19,7 @@ function EstOut = estimate_gjr_garch(R, varargin)
 %       'dates'      : Vector of dates (default: [])
 %       'portfolio'  : String to identify portfolio construction
 %       'SaveDisk'   : Logical, store results to disk
-%                      (default: true)
+%                      (default: false)
 %
 %   OUTPUT:
 %       EstOut : Struct containing all estimation output
@@ -46,7 +46,7 @@ addParameter(p, 'NumWorkers', 1);
 addParameter(p, 'assets',     []);
 addParameter(p, 'dates',      []);
 addParameter(p, 'portfolio',  []);
-addParameter(p, 'SaveDisk',   true);
+addParameter(p, 'SaveDisk',   false);
 parse(p, varargin{:});
 
 dist        = p.Results.dist;

@@ -19,7 +19,7 @@ function EstOut = estimate_garch(R, varargin)
 %       'dates'       : Vector of dates (default: [])
 %       'portfolio'   : String to identify portfolio construction
 %       'SaveDisk'    : Logical, store results to disk
-%                       (default: true)
+%                       (default: false)
 %       'RiskMetrics' : Logical, use RiskMetrics fixed parameters
 %                       [omega=0, alpha=0.06, beta=0.94] instead of
 %                       estimating — forces dist='norm' (default: false)
@@ -49,7 +49,7 @@ addParameter(p, 'NumWorkers',  1);
 addParameter(p, 'assets',      []);
 addParameter(p, 'dates',       []);
 addParameter(p, 'portfolio',   []);
-addParameter(p, 'SaveDisk',    true);
+addParameter(p, 'SaveDisk',    false);
 addParameter(p, 'RiskMetrics', false);
 parse(p, varargin{:});
 

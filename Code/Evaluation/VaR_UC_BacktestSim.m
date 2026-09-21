@@ -39,7 +39,7 @@ function [UC_t_HAC, ES_t_HAC, ES_t_bern, HitRate] = ...
 % Cumulative H-step ahead returns
 T = size(r_sim, 1);
 CumActualRet = NaN(T, H);
-CumSum         = cumsum(r_sim);
+CumSum       = cumsum(r_sim);
 for h = 1:H
     CumActualRet(1:T-h+1, h) = CumSum(h:T) - [0; CumSum(1:T-h)];
 end
@@ -58,7 +58,7 @@ HitRate  = mean(hits);
 % Unconditional coverage test from Patton et al. (2019) with HAC
 T_eval = size(hitsdiff, 1);
 q_nr   = length(alpha);
-xbar = HitRate - alpha;
+xbar   = HitRate - alpha;
 
 se = NaN(1,q_nr);
 for i = 1:q_nr

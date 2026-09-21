@@ -406,7 +406,22 @@ else
 end
 
 if SaveDisk
-    save(filename, 'EstOut');
+    if empirical_pits && K > 30
+        % Save EstOut without std_res
+        std_res = EstOut.std_res;
+        EstOut  = rmfield(EstOut, 'std_res');
+        save(filename, 'EstOut');
+        
+        % Split std_res along T dimension (3rd dimension)
+        T_std       = size(std_res, 3);
+        T_half      = floor(T_std / 2);
+        std_res1    = std_res(:,:,1:T_half);
+        std_res2    = std_res(:,:,T_half+1:end);
+        save([filename '_stdres1.mat'], 'std_res1');
+        save([filename '_stdres2.mat'], 'std_res2');
+    else
+        save(filename, 'EstOut');
+    end
 end
 
 

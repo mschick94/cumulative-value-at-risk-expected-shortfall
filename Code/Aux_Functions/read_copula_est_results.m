@@ -35,8 +35,19 @@ function EstOut = read_copula_est_results(MarginalModels, CopulaModels, assets)
                                   'EstOut_%s_%s.mat'], ...
                                   model_name, assets_str);
             if exist(filename, 'file')
-                tmp                    = load(filename);
-                EstOut.(model_name)    = tmp.EstOut;
+                tmp                 = load(filename);
+                EstOut.(model_name) = tmp.EstOut;
+
+                % For empirical, split std_res due to size issues (>2GB)
+                if EstOut.(model_name).EmpiricalPits
+                    if length(EstOut.(model_name).assets) > 30
+                        tmp1 = load([filename '_stdres1']);
+                        tmp2 = load([filename '_stdres2']);
+                        EstOut.(model_name).std_res = ...
+                            cat(3, tmp1.std_res1, tmp2.std_res2);  
+                    end
+                end
+
             else
                 warning('mycode:fileNotFound', ...
                         ['read_cop_est_results: file not found: %s — ' ...

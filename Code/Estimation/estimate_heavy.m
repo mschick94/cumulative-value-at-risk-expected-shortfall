@@ -18,7 +18,7 @@ function EstOut = estimate_heavy(R, RV, varargin)
 %       'NumWorkers' : Scalar, parallel workers (default: 1)
 %       'assets'     : Cell array of asset names (default: [])
 %       'dates'      : Vector of dates (default: [])
-%       'SaveDisk'   : Logical, store results to disk (default: true)
+%       'SaveDisk'   : Logical, store results to disk (default: false)
 %
 %   OUTPUT:
 %       EstOut : Struct containing all estimation output
@@ -48,7 +48,7 @@ addParameter(p, 'WindLength',  1000);
 addParameter(p, 'NumWorkers',  1);
 addParameter(p, 'assets',      []);
 addParameter(p, 'dates',       []);
-addParameter(p, 'SaveDisk',    true);
+addParameter(p, 'SaveDisk',    false);
 parse(p, varargin{:});
 
 dist        = p.Results.dist;

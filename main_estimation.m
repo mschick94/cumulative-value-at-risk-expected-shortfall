@@ -17,12 +17,12 @@ addpath(genpath('Code'));
 clear
 ReturnData = readtable('CTC_RET.xlsx','VariableNamingRule','preserve');
 RVData     = load('Start_data_10_30_50_2002_2023.mat');
-RV         = RVData.RCOV_CTC_vech_30;
+RV         = RVData.RCOV_CTC_vech_50;
 
 % Specify assets (manually or by position in ReturnData) and extract data
 % assets = {'AXP', 'BA'};
 VarNames = ReturnData.Properties.VariableNames;
-VarNames = VarNames(2:31);
+VarNames = VarNames(2:51);
 assets = cellfun(@(x) x(2:end-1), VarNames, 'UniformOutput', false);
 assets_q = strcat("'", assets, "'");
 dates    = ReturnData.Var1;
@@ -60,195 +60,149 @@ CopulaModels = {'CCC_norm', 'CCC_t', 'CCC_norm_empirical', ...
                 }; % Add Copula models here 
 
 
-%% Rolling-window estimation of the marginals
 
-% GARCH-Normal
-estimate_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
-                  'ReestFreq', reest_freq, 'assets', assets, ...
-                  'NumWorkers', NumberWorkers, 'dates', dates);
+%% Rolling-window estimation of marginals and copula
 
-% GARCH-t
-estimate_garch(R, 'dist', 't', 'WindLength', WindLength, ...
-                  'ReestFreq', reest_freq, 'assets', assets, ...
-                  'NumWorkers', NumberWorkers, 'dates', dates);
+%%%% GARCH(1,1) with various distributions and CCC Copula
 
-% GARCH-Skew-t
-estimate_garch(R, 'dist', 'skewt', 'WindLength', WindLength, ...
-                  'ReestFreq', reest_freq, 'assets', assets, ...
-                  'NumWorkers', NumberWorkers, 'dates', dates);
+%%% GARCH-Normal 
+EstOut = estimate_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
+                        'ReestFreq', reest_freq, 'assets', assets, ...
+                        'NumWorkers', NumberWorkers, 'dates', dates);
+
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% Empirical 
+estimate_copula(EstOut, 'copula_dist', 'norm', 'corr_model', 'CCC', ...
+                'empirical_pits', true, 'NumWorkers', NumberWorkers);
+
+
+%%% GARCH-t
+EstOut = estimate_garch(R, 'dist', 't', 'WindLength', WindLength, ...
+                        'ReestFreq', reest_freq, 'assets', assets, ...
+                        'NumWorkers', NumberWorkers, 'dates', dates);
+
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+%%% GARCH-Skew-t
+EstOut = estimate_garch(R, 'dist', 'skewt', 'WindLength', WindLength, ...
+                        'ReestFreq', reest_freq, 'assets', assets, ...
+                        'NumWorkers', NumberWorkers, 'dates', dates);
+
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
 
 % GARCH-Laplace
-estimate_garch(R, 'dist', 'laplace', 'WindLength', WindLength, ...
-                  'ReestFreq', reest_freq, 'assets', assets, ...
-                  'NumWorkers', NumberWorkers, 'dates', dates);
+EstOut = estimate_garch(R, 'dist', 'laplace', 'WindLength', WindLength, ...
+                        'ReestFreq', reest_freq, 'assets', assets, ...
+                        'NumWorkers', NumberWorkers, 'dates', dates);
+
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
 
 
-% GJR-GARCH-Normal
-estimate_gjr_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
-                      'ReestFreq', reest_freq, 'assets', assets, ...
-                      'NumWorkers', NumberWorkers, 'dates', dates);
+%%% RiskMetrics with Gaussian and Student-t CCC Copula
+EstOut = estimate_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
+                        'ReestFreq', reest_freq, 'assets', assets, ...
+                        'NumWorkers', NumberWorkers, 'dates', dates, ...
+                        'RiskMetrics', true);
 
-% GJR-GARCH-t
-estimate_gjr_garch(R, 'dist', 't', 'WindLength', WindLength, ...
-                      'ReestFreq', reest_freq, 'assets', assets, ...
-                      'NumWorkers', NumberWorkers, 'dates', dates);
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
 
-% GJR-GARCH-Skew-t
-estimate_gjr_garch(R, 'dist', 'skewt', 'WindLength', WindLength, ...
-                      'ReestFreq', reest_freq, 'assets', assets, ...
-                      'NumWorkers', NumberWorkers, 'dates', dates);
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+
+
+%%%% GJR-GARCH(1,1) with various distributions and CCC Copula
+
+%%% GJR-GARCH-Normal 
+EstOut = estimate_gjr_garch(R, 'dist', 'norm', ...
+                            'WindLength', WindLength, ...
+                            'ReestFreq', reest_freq, 'assets', assets, ...
+                            'NumWorkers', NumberWorkers, 'dates', dates);
+
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% Empirical 
+estimate_copula(EstOut, 'copula_dist', 'norm', 'corr_model', 'CCC', ...
+                'empirical_pits', true, 'NumWorkers', NumberWorkers);
+
+
+%%% GJR-GARCH-t
+EstOut = estimate_gjr_garch(R, 'dist', 't', 'WindLength', WindLength, ...
+                            'ReestFreq', reest_freq, 'assets', assets, ...
+                            'NumWorkers', NumberWorkers, 'dates', dates);
+
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+%%% GJR-GARCH-Skew-t
+EstOut = estimate_gjr_garch(R, 'dist', 'skewt', ...
+                            'WindLength', WindLength, ...
+                            'ReestFreq', reest_freq, 'assets', assets, ...
+                            'NumWorkers', NumberWorkers, 'dates', dates);
+
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
+                'NumWorkers', NumberWorkers);
+
 
 % GJR-GARCH-Laplace
-estimate_gjr_garch(R, 'dist', 'laplace', 'WindLength', WindLength, ...
-                      'ReestFreq', reest_freq, 'assets', assets, ...
-                      'NumWorkers', NumberWorkers, 'dates', dates);
+EstOut = estimate_gjr_garch(R, 'dist', 'laplace', ...
+                            'WindLength', WindLength, ...
+                            'ReestFreq', reest_freq, 'assets', assets, ...
+                            'NumWorkers', NumberWorkers, 'dates', dates);
 
-
-% RiskMetrics-Normal
-estimate_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
-                  'ReestFreq', reest_freq, 'assets', assets, ...
-                  'NumWorkers', NumberWorkers, 'dates', dates, ...
-                  'RiskMetrics', true);
-
-
-
-% % Heavy-Normal
-% estimate_heavy(R, RV, 'dist', 'norm', 'WindLength', WindLength, ...
-%                       'ReestFreq', reest_freq, 'assets', assets, ...
-%                       'NumWorkers', NumberWorkers, 'dates', dates);
-% 
-% % Heavy-Laplace
-% estimate_heavy(R, RV, 'dist', 'laplace', 'WindLength', WindLength, ...
-%                       'ReestFreq', reest_freq, 'assets', assets, ...
-%                       'NumWorkers', NumberWorkers, 'dates', dates);
-
-
-
-%% Rolling-window estimation of the copula
-clearvars -except R RV assets weightMat NumberWorkers dates Hsim Msim ...
-                  MarginalModels CopulaModels
-
-% Load all combinations of univariate variance models and assets
-EstOut = read_marg_est_results(MarginalModels,assets);
-
-
-%%%% GARCH(1,1) with various distributions and Gaussian CCC Copula
-
-% GARCH(1,1)-Normal
-estimate_copula(EstOut.GARCH_norm, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GARCH(1,1)-t
-estimate_copula(EstOut.GARCH_t, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GARCH(1,1)-Skew-t
-estimate_copula(EstOut.GARCH_skewt, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GARCH(1,1)-Laplace
-estimate_copula(EstOut.GARCH_laplace, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GARCH(1,1)-Empirical
-estimate_copula(EstOut.GARCH_norm, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'empirical_pits', true, ...
+% Gaussian-CCC
+estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
                 'NumWorkers', NumberWorkers);
 
-
-%%%% GARCH(1,1) with various distributions and Student-t CCC Copula
-
-% GARCH(1,1)-Normal
-estimate_copula(EstOut.GARCH_norm, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GARCH(1,1)-t
-estimate_copula(EstOut.GARCH_t, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GARCH(1,1)-Skew-t
-estimate_copula(EstOut.GARCH_skewt, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GARCH(1,1)-Laplace
-estimate_copula(EstOut.GARCH_laplace, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-
-%%% Risk metrics with Gaussian and Student-t CCC Copula
-
-% Gaussian Copula
-estimate_copula(EstOut.RiskMetrics_GARCH_norm, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% Student-t Copula
-estimate_copula(EstOut.RiskMetrics_GARCH_norm, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-
-%%%% GJR-GARCH(1,1) with various distributions and Gaussian CCC Copula
-
-% GJR-GARCH(1,1)-Normal
-estimate_copula(EstOut.GJRGARCH_norm, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GJR-GARCH(1,1)-t
-estimate_copula(EstOut.GJRGARCH_t, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GJR-GARCH(1,1)-Skew-t
-estimate_copula(EstOut.GJRGARCH_skewt, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GJR-GARCH(1,1)-Laplace
-estimate_copula(EstOut.GJRGARCH_laplace, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GJR-GARCH(1,1)-Empirical
-estimate_copula(EstOut.GJRGARCH_norm, 'copula_dist', 'norm', ...
-                'corr_model', 'CCC', 'empirical_pits', true, ...
+% t-CCC 
+estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
                 'NumWorkers', NumberWorkers);
 
-
-%%%% GJR-GARCH(1,1) with various distributions and Student-t CCC Copula
-
-% GJR-GARCH(1,1)-Normal
-estimate_copula(EstOut.GJRGARCH_norm, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GJR-GARCH(1,1)-t
-estimate_copula(EstOut.GJRGARCH_t, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GJR-GARCH(1,1)-Skew-t
-estimate_copula(EstOut.GJRGARCH_skewt, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-% GJR-GARCH(1,1)-Laplace
-estimate_copula(EstOut.GJRGARCH_laplace, 'copula_dist', 't', ...
-                'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-
-
-
-%%%% GJR-GARCH(1,1) with various distributions and DCC Copula
-
-% GJR-GARCH(1,1)-Empirical
-estimate_copula(EstOut.GJRGARCH_norm, 'copula_dist', 'norm', ...
-                'corr_model', 'DCC', 'empirical_pits', true, ...
-                'NumWorkers', NumberWorkers);
-
-
-
-% %%% HEAVY-model with various distributions and Gaussian CCC Copula
-% 
-% % HEAVY-Laplace
-% estimate_copula(EstOut.HEAVY_laplace, 'copula_dist', 'norm', ...
-%                 'corr_model', 'CCC', 'NumWorkers', NumberWorkers);
-% 
-% % HEAVY-Empirical
-% estimate_copula(EstOut.HEAVY_norm, 'copula_dist', 'norm', ...
-%                 'corr_model', 'CCC', 'empirical_pits', true, ...
-%                 'NumWorkers', NumberWorkers);
 
 
 
@@ -390,6 +344,15 @@ reest_freq_mc = 250;
 %                    'reest_freq_mc', reest_freq_mc);
 
 
+%%
+
+B = 2;
+
+BackTestSimTable(B)
+
+
+
+%%
 
 % load('Output/SimBacktests/SimBacktest_EstPars_GARCHN_B1000_T5000_H10_M25000_Server.mat')
 % B=1000;

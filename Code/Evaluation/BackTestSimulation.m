@@ -68,8 +68,8 @@ beta_true  = TruePars(3);
 % Additional distribution specific settings
 switch dist
     case 'norm'
-        pars_n     = 4;
-        tDist      = false;
+        pars_n = 4;
+        tDist  = false;
 
         if EstPars
             TrueParsProvide = [];

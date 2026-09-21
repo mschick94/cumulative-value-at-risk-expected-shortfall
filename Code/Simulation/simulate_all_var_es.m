@@ -26,7 +26,8 @@ function VaRESOut = simulate_all_var_es(EstOut, R, PFweights, ...
 %       'H'          : Scalar, simulation horizon in days (default: 10)
 %       'M'          : Scalar, number of simulation paths (default: 1000)
 %       'NumWorkers' : Scalar, number of parallel workers (default: 1)
-%       'SetSeed'    : Logical, set seed for reproducibility (default: true)
+%       'SetSeed'    : Logical, set seed for reproducibility 
+%                      (default: true)
 %       'OutputName' : String, identifier for output filename
 %                      (default: 'EquallyWeighted')
 %
@@ -74,8 +75,8 @@ OutputName = p.Results.OutputName;
 % Build filename and check existence to avoid accidentally overwriting it
 first_model = fieldnames(EstOut);
 assets_str  = strjoin(EstOut.(first_model{1}).assets, '_');
-filename   = sprintf('Output/VaRandES/VaRandES_%s_%s.mat', ...
-                     OutputName, assets_str);
+filename    = sprintf('Output/VaRandES/VaRandES_%s_%s.mat', ...
+                      OutputName, assets_str);
 
 if exist(filename, 'file')
     error('mycode:fileExists', ...
@@ -85,9 +86,9 @@ end
 
 
 % Construct actual H-step ahead cumulative PF returns for PITs computation
-ActualPFRet    = R * PFweights;   % (T x 1)
-CumSum         = cumsum(ActualPFRet);
-T              = size(ActualPFRet, 1);
+ActualPFRet = R * PFweights;   % (T x 1)
+CumSum      = cumsum(ActualPFRet);
+T           = size(ActualPFRet, 1);
 ActualHStepPFRet = NaN(T, 1);
 ActualHStepPFRet(1:T-H_aux+1) = CumSum(H_aux:T) - [0; CumSum(1:T-H_aux)];
 
@@ -146,5 +147,14 @@ if exist('Output/VaRandES/checkpoint.mat', 'file')
     fprintf('Checkpoint deleted\n');
 end
 
+
+% Delete copula estimation output for this asset set
+assets_str = strjoin(VaRESOut.assets, '_');
+copula_dir = 'Output/Estimation/Copula/';
+files      = dir(fullfile(copula_dir, ['*' assets_str '*.mat']));
+for f = 1:length(files)
+    delete(fullfile(copula_dir, files(f).name));
+end
+fprintf('Deleted %d copula estimation files for %s\n', length(files), assets_str);
 
 end

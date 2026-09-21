@@ -413,10 +413,10 @@ if SaveDisk
         save(filename, 'EstOut');
         
         % Split std_res along T dimension (3rd dimension)
-        T_std       = size(std_res, 3);
-        T_half      = floor(T_std / 2);
-        std_res1    = std_res(:,:,1:T_half);
-        std_res2    = std_res(:,:,T_half+1:end);
+        T_std    = size(std_res, 3);
+        T_half   = floor(T_std / 2);
+        std_res1 = std_res(:,:,1:T_half);
+        std_res2 = std_res(:,:,T_half+1:end);
         save([filename '_stdres1.mat'], 'std_res1');
         save([filename '_stdres2.mat'], 'std_res2');
     else

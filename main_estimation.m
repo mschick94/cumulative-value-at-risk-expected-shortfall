@@ -343,13 +343,14 @@ reest_freq_mc = 250;
 %                    'EstPars', false, 'WindLength_mc', WindLength_mc, ...
 %                    'reest_freq_mc', reest_freq_mc);
 
+% Report simulation results
+BT_estpars  = BackTestSimTable(B);
+BT_truepars = BackTestSimTable(B, 'EstPars', false);
 
-%%
-
-B = 2;
-
-BackTestSimTable(B)
-
+% % Construct combined output for LaTeX
+% Tab2 = BT_truepars.LaTeX;
+% Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
+% disp([BT_estpars.LaTeX(:,1:end-1) Tab2(:,2:end)])
 
 
 %%

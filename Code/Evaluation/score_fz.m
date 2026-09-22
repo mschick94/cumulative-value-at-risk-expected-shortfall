@@ -84,28 +84,30 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 
 % Name-value inputs
 p = inputParser;
-addParameter(p, 'HEval',       []); % default is all horizons provided
-addParameter(p, 'alpha_level', []);
-addParameter(p, 'Models_id',   []);
-addParameter(p, 'DateStart',   []);
-addParameter(p, 'DateEnd',     []);
-addParameter(p, 'BlockLength', []);
-addParameter(p, 'NBootstrap',  50000);
-addParameter(p, 'Decimals',    2);
-addParameter(p, 'MCSLevel',    0.1);
-addParameter(p, 'PrintTable',  true);
+addParameter(p, 'HEval',        []); % default is all horizons provided
+addParameter(p, 'alpha_level',  []);
+addParameter(p, 'Models_id',    []);
+addParameter(p, 'DateStart',    []);
+addParameter(p, 'DateEnd',      []);
+addParameter(p, 'ExcludeDates', []);
+addParameter(p, 'BlockLength',  []);
+addParameter(p, 'NBootstrap',   50000);
+addParameter(p, 'Decimals',     2);
+addParameter(p, 'MCSLevel',     0.1);
+addParameter(p, 'PrintTable',   true);
 parse(p, varargin{:});
 
-HEval       = p.Results.HEval;
-alpha_level = p.Results.alpha_level;
-Models_id   = p.Results.Models_id;
-DateStart   = p.Results.DateStart;
-DateEnd     = p.Results.DateEnd;
-BlockLength = p.Results.BlockLength;
-NBootstrap  = p.Results.NBootstrap;
-Decimals    = p.Results.Decimals;
-MCSLevel    = p.Results.MCSLevel;
-PrintTable  = p.Results.PrintTable;
+HEval        = p.Results.HEval;
+alpha_level  = p.Results.alpha_level;
+Models_id    = p.Results.Models_id;
+DateStart    = p.Results.DateStart;
+DateEnd      = p.Results.DateEnd;
+ExcludeDates = p.Results.ExcludeDates;
+BlockLength  = p.Results.BlockLength;
+NBootstrap   = p.Results.NBootstrap;
+Decimals     = p.Results.Decimals;
+MCSLevel     = p.Results.MCSLevel;
+PrintTable   = p.Results.PrintTable;
 
 % Read out all model names considered and general set up
 ModelNames = VaRES.Models;
@@ -229,12 +231,40 @@ LossMat    = LossMat(t_start_eval:t_end_eval, :, :);
 dates_eval = dates(t_start_eval:t_end_eval);
 T_eval     = size(dates_eval,1);
 
+% % Quick and dirty inspection losses
+% figure
+% plot(dates_eval, LossMat(:,1:end))
+
+% Exclude specified date ranges
+if ~isempty(ExcludeDates)
+    excl_ind = false(T_eval, 1);
+    for i = 1:size(ExcludeDates, 1)
+        % Last date equal or smaller than start
+        t_excl_start = find(dates_eval <= ExcludeDates(i,1), 1, 'last');
+        % First date equal or after end
+        t_excl_end   = find(dates_eval >= ExcludeDates(i,2), 1, 'first');
+        if isempty(t_excl_start) || isempty(t_excl_end)
+            warning(['score_fz: ExcludeDates row %d outside ' ...
+                     'evaluation sample — skipping'], i);
+            continue
+        end
+        excl_ind(t_excl_start:t_excl_end) = true;
+    end
+    LossMat    = LossMat(~excl_ind, :, :);
+    dates_eval = dates_eval(~excl_ind);
+    T_eval     = size(dates_eval, 1);
+    % fprintf('score_fz: excluded %d observations\n', sum(excl_ind));
+end
+
 % Safety check: LossMat should not contain NaNs
 if any(isnan(LossMat(:)))
     warning(['score_fz: NaN values found in LossMat after evaluation ' ...
              'sample restriction; check t_start_eval and t_end_eval']);
 end
 
+% % Quick and dirty inspection losses
+% figure
+% plot(dates_eval, LossMat(:,1:end))
 
 % Forecast evaluation for specified horizons h
 includedMCS = cell(Hlength, 1);
@@ -265,7 +295,7 @@ end
 % Compute average losses per horizon h and construct LaTeX formatted table
 meanLosses = reshape(mean(LossMat, 1), J, Hlength);  
 FZEvalTable.LaTeX = print_latex_losses(meanLosses, includedMCS, ...
-    ModelNames(Models_id), HEval, Decimals, PrintTable);
+    ModelNames(Models_id), HEval, T_eval, Decimals, PrintTable);
 
 % Numeric summary table
 h_col_names = arrayfun(@(h) sprintf('h%d', h), HEval, ...
@@ -288,7 +318,7 @@ end
 
 
 function Tab = print_latex_losses(mean_losses, includedModels, ...
-    ModelNames, HEval, decimals, PrintTable)
+    ModelNames, HEval, T, decimals, PrintTable)
 %PRINT_LATEX_LOSSES Print LaTeX table body for VaR/ES forecast evaluation
 % with MCS highlighting and bold letters for best model.
 %
@@ -296,6 +326,7 @@ function Tab = print_latex_losses(mean_losses, includedModels, ...
 %       mean_losses    : (J x Hlength) mean FZ losses per model and horizon
 %       includedModels : (Hlength x 1) cell array of MCS survivor indices
 %       ModelNames     : (J x 1) cell array of model names
+%       T              : Evaluation sample size
 %       HEval          : (1 x Hlength) vector of evaluated horizons
 %       decimals       : scalar, number of decimal places
 %       PrintTable     : if true, print LaTeX table to output window
@@ -357,6 +388,22 @@ for i = 1:Hlength
         col = col + 2;
     end
 end
+
+% Add T row at bottom
+T_row = strings(1, n_cols);
+T_row(1)   = 'T';
+T_row(2)   = '&';
+T_row(end) = '\\';
+% Fill T value
+for i = 1:Hlength
+    T_row(2*i+1) = sprintf('%d', T);
+end
+if Hlength > 1
+    for i = 1:Hlength-1
+        T_row(2*i+2) = '&';
+    end
+end
+table_str = [table_str; T_row];
 
 % Convert to table with categorical columns to remove quotes in display
 Tab = array2table(table_str);

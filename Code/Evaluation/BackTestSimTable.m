@@ -1,4 +1,33 @@
 function BackTestTable = BackTestSimTable(B, varargin)
+%BACKTESTSIMTABLE Load and summarize Monte Carlo backtest simulation results.
+%
+%   BackTestTable = BACKTESTSIMTABLE(B) loads simulation results and
+%   computes empirical rejection rates for UC and ES tests at given
+%   significance level.
+%
+%   INPUTS (required):
+%       B : Scalar, number of Monte Carlo replications
+%
+%   INPUTS (optional name-value):
+%       'H_sim'    : Scalar, forecast horizon (default: 10)
+%       'T_sim'    : Scalar, time series length (default: 5000)
+%       'M_sim'    : Scalar, simulation paths (default: 25000)
+%       'alpha'    : (1xP) significance levels (default: [0.01 0.025])
+%       'SigLevel' : Scalar, test significance level (default: 0.05)
+%       'dist'     : String, DGP distribution 'norm' or 't' 
+%                    (default: 'norm')
+%       'EstPars'  : Logical, estimated or true parameters (default: true)
+%       'Decimals' : Scalar, decimal places in output (default: 3)
+%       'LaTeX'    : Logical, produce LaTeX table body (default: true)
+%       'PlotFig'  : Logical, plot t-statistic densities (default: false)
+%
+%   OUTPUT:
+%       BackTestTable : Struct with fields:
+%                       .MeanHitRate - (1xP) average hit rates
+%                       .OneSided    - (3xP) one-sided rejection rates
+%                       .TwoSided    - (3xP) two-sided rejection rates
+%                       .LaTeX       - MATLAB table for LaTeX copy-paste
+%                                      (only if LaTeX=true)
 
 % Name-value inputs
 p = inputParser;
@@ -70,34 +99,38 @@ BackTestTable.OneSided    = OneSided;
 BackTestTable.TwoSided    = TwoSided;
 
 
-% Display results table
+% Display results table 
+fmt_col = sprintf('  %%%d.%df     ', Decimals+4, Decimals);
 if PrintTable
-    fprintf('\nGARCH-%s: %s\n', upper(dist), ParEstTrue);
+    fprintf('%-15s', '');
+    fprintf('         One-sided                   Two-sided\n');
     fprintf('%-15s', '');
     for i = 1:alphaNo
-        fprintf('  alpha=%.3f         ', alpha(i));
+        fprintf(' alpha=%.3f  ', alpha(i));
     end
-    fprintf('\n');
-    fprintf('%-15s', '');
     for i = 1:alphaNo
-        fprintf('  One-sided Two-sided ');
+        fprintf(' alpha=%.3f  ', alpha(i));
     end
-    fprintf('\n%s\n', repmat('-', 1, 15 + alphaNo*22));
+    fprintf('\n%s\n', repmat('-', 1, 17 + alphaNo*26));
     
     test_names = {'UC-HAC', 'ES-HAC', 'ES-Bern'};
     for j = 1:3
         fprintf('%-15s', test_names{j});
         for i = 1:alphaNo
-            fprintf('  %7.3f   %7.3f   ', OneSided(j,i), TwoSided(j,i));
+            fprintf(fmt_col, OneSided(j,i));
+        end
+        for i = 1:alphaNo
+            fprintf(fmt_col, TwoSided(j,i));
         end
         fprintf('\n');
     end
-    fprintf('%s\n', repmat('-', 1, 15 + alphaNo*22));
+    fprintf('%s\n', repmat('-', 1, 17 + alphaNo*26));
     fprintf('%-15s', 'Mean HitRate');
     for i = 1:alphaNo
-        fprintf('  %7.3f             ', MeanHitRate(i));
+        fprintf(fmt_col, MeanHitRate(i));
     end
     fprintf('\n');
+    disp(' ')
 end
 
 % Plot simulated test distributions
@@ -138,16 +171,23 @@ if LaTeX
     table_str(:,end) = '\\';
     
     col = 3;
+    % One-sided
     for i = 1:alphaNo
         for j = 1:3
-            table_str(j, col)   = sprintf(format_str, OneSided(j,i));
-            table_str(j, col+1) = '&';
-            table_str(j, col+2) = sprintf(format_str, TwoSided(j,i));
-            if i < alphaNo
-                table_str(j, col+3) = '&';
-            end
+            table_str(j, col) = sprintf(format_str, OneSided(j,i));
         end
-        col = col + 4;
+        table_str(:, col+1) = '&';
+        col = col + 2;
+    end
+    % Two-sided
+    for i = 1:alphaNo
+        for j = 1:3
+            table_str(j, col) = sprintf(format_str, TwoSided(j,i));
+        end
+        if i < alphaNo
+            table_str(:, col+1) = '&';
+            col = col + 2;
+        end
     end
     
     % Convert to categorical table
@@ -157,30 +197,6 @@ if LaTeX
     end
     BackTestTable.LaTeX = Tab;
 end
-
-
-% % Construct main body of the Table in LaTeX format
-% if LaTeX
-%     latex_str = '';
-%     test_names_latex = {'UC-HAC', 'ES-HAC', 'ES-Bern'};
-%     for j = 1:3
-%         row = sprintf('%s', test_names_latex{j});
-%         for i = 1:alphaNo
-%             row = sprintf('%s & %.3f & %.3f', row, OneSided(j,i), TwoSided(j,i));
-%         end
-%         row = sprintf('%s \\\\\\\\', row);
-%         latex_str = sprintf('%s%s\n', latex_str, row);
-%     end
-%     % Mean hit rate row
-%     row = sprintf('Mean Hit Rate');
-%     for i = 1:alphaNo
-%         row = sprintf('%s & %.3f & ', row, MeanHitRate(i));
-%     end
-%     row = sprintf('%s \\\\\\\\', row);
-%     latex_str = sprintf('%s%s\n', latex_str, row);
-% 
-%     BackTestTable.LaTeX = latex_str;
-% end
 
 
 end

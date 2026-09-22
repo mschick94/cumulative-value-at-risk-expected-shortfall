@@ -17,7 +17,8 @@ project/
 
 ## Main entry point
 
-Run `main_estimation.m` to reproduce the analysis (requires local data, see above).
+Run `main_estimation.m` to estimate the copula models (requires local data, see above).
+Run `main_evaluation.m` to reproduce the results.
 
 ## Contact
 

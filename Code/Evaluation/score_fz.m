@@ -28,6 +28,7 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 %   INPUTS (optional name-value):
 %       'HEval'        : Vector of forecast horizons to evaluate
 %                        (default: all available horizons)
+%                        Note: Only handles h = H so far!
 %       'alpha_level'  : Scalar, VaR/ES level if multiple levels in VaRES
 %                        (default: 1st level in VaRES)
 %       'Models_id'    : Vector of model positions if only subset evaluated
@@ -106,7 +107,7 @@ addParameter(p, 'Models_id',    []);
 addParameter(p, 'DateStart',    []);
 addParameter(p, 'DateEnd',      []);
 addParameter(p, 'ExcludeDates', []);
-addParameter(p, 'EvalDates', []);
+addParameter(p, 'EvalDates',    []);
 addParameter(p, 'ExcludeQuant', []);
 addParameter(p, 'MCSTest',      true)
 addParameter(p, 'BlockLength',  []);
@@ -299,7 +300,7 @@ end
 % LossMat_before_cur = LossMat;
 
 % Exclude extreme losses/loss differences
-if ~isempty(ExcludeQuant)
+if ~isempty(ExcludeQuant) && isempty(EvalDates)
     MaxLossDiff  = max(LossMat, [], 2) - min(LossMat, [], 2);
     QuantDropInd = (MaxLossDiff > quantile(MaxLossDiff, 1-ExcludeQuant));
     LossMat      = LossMat(~QuantDropInd,:);

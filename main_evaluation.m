@@ -36,7 +36,7 @@ Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
 %% Load model forecasts for K
 
 % Numbe of assets K = 10, 30, or 50
-K = 10;
+K = 50;
 
 % Read in Returns as well as VaR and ES forecasts per model
 VarNames = ReturnData.Properties.VariableNames;
@@ -96,7 +96,7 @@ Table_0025_all = score_fz(VaRandES, R, 'HEval', 10, ...
     'EvalDates', [], 'Decimals', 3, 'MCSLevel', SigLevel);
 
 
-%%% Filtering 0.01% most extreme quantile losses
+%%% Filtering 1% most extreme quantile losses
 % Fissler-Ziegel (FZ) loss and Model Confidence Set of 1% VaR and ES
 Table_0010_q0010 = score_fz(VaRandES, R, 'HEval', 10, ...
     'alpha_level', 0.01, 'Models_id', ModelEval, 'PrintTable', false, ...
@@ -112,7 +112,7 @@ Table_0025_q0010 = score_fz(VaRandES, R, 'HEval', 10, ...
     'MCSLevel', SigLevel);
 
 
-%%% Filtering 0.005% most extreme quantile losses
+%%% Filtering 0.5% most extreme quantile losses
 % Fissler-Ziegel (FZ) loss and Model Confidence Set of 1% VaR and ES
 Table_0010_q0005 = score_fz(VaRandES, R, 'HEval', 10, ...
     'alpha_level', 0.01, 'Models_id', ModelEval, 'PrintTable', false, ...
@@ -146,14 +146,40 @@ Tab6.Properties.VariableNames = strcat(Tab6.Properties.VariableNames,'_6');
 
 %% UC and ES backtest
 
+%%% All observations
+BacktestTable_0010_all = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval);
 
-BacktestTable_0010 = VaRESBacktest(VaRandES, R, 'alpha_level', 0.01, ...
-                                   'Models_id', []);
-BacktestTable_0025 = VaRESBacktest(VaRandES, R, 'alpha_level', 0.025, ...
-                                   'Models_id', []);
+BacktestTable_0025_all = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval);
 
-BacktestTable_0010.LaTeX
-BacktestTable_0025.LaTeX
+%%% Filtering 0.5% most extreme quantile losses
+BacktestTable_0010_q_0005 = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, ...
+    'EvalDates', EvalDates_alpha_0010_q_0005.dates_eval);
 
+BacktestTable_0025_q_0005 = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, ...
+    'EvalDates', EvalDates_alpha_0025_q_0005.dates_eval);
 
+%%% Filtering 1% most extreme quantile losses
+BacktestTable_0010_q_0010 = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, ...
+    'EvalDates', EvalDates_alpha_0010_q_0010.dates_eval);
 
+BacktestTable_0025_q_0010 = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, ...
+    'EvalDates', EvalDates_alpha_0025_q_0010.dates_eval);
+
+% Construct combined output for LaTeX (ready for copy and paste)
+Tab2 = BacktestTable_0025_all.LaTeX;
+Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
+% disp([BacktestTable_0010_all.LaTeX(:,1:end-1) Tab2(:,2:end)])
+
+Tab2 = BacktestTable_0025_q_0005.LaTeX;
+Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
+% disp([BacktestTable_0010_q_0005.LaTeX(:,1:end-1) Tab2(:,2:end)])
+
+Tab2 = BacktestTable_0025_q_0010.LaTeX;
+Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
+% disp([BacktestTable_0010_q_0010.LaTeX(:,1:end-1) Tab2(:,2:end)])

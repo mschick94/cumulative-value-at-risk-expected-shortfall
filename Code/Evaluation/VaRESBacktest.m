@@ -1,14 +1,93 @@
 function BackTestTable = VaRESBacktest(VaRES, R, varargin)
+%VARESBACKTEST Unconditional coverage and ES backtesting for VaR and ES
+% forecasts across models.
+%
+%   BackTestTable = VARESBACKTEST(VaRES, R) evaluates VaR and ES forecasts
+%   using the UC test (Patton et al., 2019) and ES test (Du & Escanciano,
+%   2017) for all models in VaRES.
+%
+%   INPUTS (required):
+%       VaRES : Struct, output from simulate_all_var_es. Must contain:
+%               .VaR        - (T x J x P) VaR forecasts, negative values
+%               .ES         - (T x J x P) ES forecasts, negative values
+%               .EmpPITs    - (T x J) empirical PITs from simulated 
+%                             distribution
+%               .Models     - (J x 1) cell array of model names
+%               .alpha      - (1 x P) significance levels
+%               .PFweights  - (1 x K) portfolio weights
+%               .WindLength - estimation window length
+%               .dates      - (T x 1) date vector
+%               .H          - actual simulation horizon
+%       R     : (T x K) matrix of observed asset returns
+%
+%   INPUTS (optional name-value):
+%       'HEval'        : Vector of forecast horizons to evaluate
+%                        (default: all available horizons)
+%                        Note: Only handles h = H so far!
+%       'alpha_level'  : Scalar, VaR/ES level if multiple levels in VaRES
+%                        (default: 1st level in VaRES)
+%       'Models_id'    : Vector of model positions if only subset evaluated
+%                        (default: all models)
+%       'DateStart'    : Scalar, start date of evaluation sample
+%                        (default: WindLength + 1)
+%       'DateEnd'      : Scalar, end date of evaluation sample
+%                        (default: T - H_max + 1)
+%       'ExcludeDates' : (Nx2) matrix of [start_date, end_date] pairs to
+%                        exclude. Conservative convention: last date <= start
+%                        and first date >= end (default: [])
+%       'EvalDates'    : (Tx1) vector of dates to use for evaluation.
+%                        If provided overrides DateStart/DateEnd — applied
+%                        via intersect with dates_eval. Intended for
+%                        consistent evaluation across functions using dates
+%                        from score_fz with ExcludeQuant (default: [])
+%       'Decimals'     : Scalar, decimal places in output (default: 3)
+%       'LaTeX'        : Logical, produce LaTeX table body (default: true)
+%       'PrintTable'   : Logical, display results in output window (default: true)
+%
+%   OUTPUT:
+%       BackTestTable : Struct containing:
+%                       .alpha_level - significance level used
+%                       .PFweights   - portfolio weights used
+%                       .WindLength  - estimation window length
+%                       .T_eval      - number of evaluation observations
+%                       .dates_eval  - dates of evaluation sample
+%                       .assets      - asset names
+%                       .H           - evaluated horizons
+%                       .UC_xbar     - (J x 1) mean hit rate minus alpha
+%                       .UC_t_HAC    - (J x 1) UC t-statistics with HAC SE
+%                       .ES_xbar     - (J x 1) mean ES loss
+%                       .ES_t_HAC    - (J x 1) ES t-statistics with HAC SE
+%                       .LaTeX       - MATLAB table with LaTeX-formatted
+%                                      strings and significance stars
+%                                      (only if LaTeX=true)
+%
+%   NOTES:
+%       - HAC bandwidth set to H for all tests
+%       - Two-sided significance stars: * |t|>1.645, ** |t|>1.960,
+%         *** |t|>2.576
+%       - EvalDates workflow: obtain from score_fz with ExcludeQuant and
+%         pass here for consistent evaluation samples across functions
+%       - Realized cumulative PF returns constructed as
+%         r_t^PF(h) = sum(R(t:t+h-1,:) * w') aligned at forecast origin t
+%
+%   REFERENCES:
+%       Patton, A., Ziegel, J., Chen, R. (2019). Dynamic semiparametric
+%       models for expected shortfall (and Value-at-Risk). Journal of
+%       Econometrics, 211(2), 388-413.
+%
+%       Du, Z., Escanciano, J.C. (2017). Backtesting expected shortfall:
+%       accounting for tail risk. Management Science, 63(4), 940-958.
 
 
 % Name-value inputs
 p = inputParser;
-addParameter(p, 'HEval',        []); % default is all horizons provided
+addParameter(p, 'HEval',        []); 
 addParameter(p, 'alpha_level',  []);
 addParameter(p, 'Models_id',    []);
 addParameter(p, 'DateStart',    []);
 addParameter(p, 'DateEnd',      []);
 addParameter(p, 'ExcludeDates', []);
+addParameter(p, 'EvalDates',    []);
 addParameter(p, 'Decimals',     3);
 addParameter(p, 'LaTeX',        true);
 addParameter(p, 'PrintTable',   true);
@@ -19,6 +98,7 @@ alpha_level  = p.Results.alpha_level;
 Models_id    = p.Results.Models_id;
 DateStart    = p.Results.DateStart;
 DateEnd      = p.Results.DateEnd;
+EvalDates    = p.Results.EvalDates;
 ExcludeDates = p.Results.ExcludeDates;
 Decimals     = p.Results.Decimals;
 LaTeX        = p.Results.LaTeX;
@@ -75,7 +155,6 @@ EmpPITs = VaRES.EmpPITs(:, Models_id);
 % (Demeaned) Hit sequence
 hits = CumActualRet <= VaRmat;  % logical
 hitsdiff = hits - alpha_test;   % numeric
-HitRate  = mean(hits);
 
 
 % Determine evaluation sample
@@ -104,8 +183,9 @@ if isempty(t_start_eval) || isempty(t_end_eval)
 end
 
 % Only keep losses over the evaluation sample
-hitsdiff    = hitsdiff(t_start_eval:t_end_eval, :, :);
-EmpPITsEval = EmpPITs(t_start_eval:t_end_eval, :, :);
+hits        = hits(t_start_eval:t_end_eval, :);
+hitsdiff    = hitsdiff(t_start_eval:t_end_eval, :);
+EmpPITsEval = EmpPITs(t_start_eval:t_end_eval, :);
 dates_eval  = dates(t_start_eval:t_end_eval);
 T_eval      = size(dates_eval,1);
 
@@ -125,12 +205,34 @@ if ~isempty(ExcludeDates)
         end
         excl_ind(t_excl_start:t_excl_end) = true;
     end
-    hitsdiff    = hitsdiff(~excl_ind, :, :);
+    hits        = hits(~excl_ind, :);
+    hitsdiff    = hitsdiff(~excl_ind, :);
     EmpPITsEval = EmpPITsEval(~excl_ind, :);
-    dates_eval = dates_eval(~excl_ind);
-    T_eval     = size(dates_eval, 1);
+    dates_eval  = dates_eval(~excl_ind);
+    T_eval      = size(dates_eval, 1);
     % fprintf('score_fz: excluded %d observations\n', sum(excl_ind));
 end
+
+
+% If eval_dates provided externally, use directly
+if ~isempty(EvalDates)
+    % Find matching indices in dates_eval
+    [~, keep_idx] = intersect(dates_eval, EvalDates);
+    keep_idx    = sort(keep_idx);   % maintain chronological order
+    hits        = hits(keep_idx, :);
+    hitsdiff    = hitsdiff(keep_idx, :);
+    EmpPITsEval = EmpPITsEval(keep_idx, :);
+    dates_eval  = dates_eval(keep_idx);
+    T_eval      = size(dates_eval, 1);
+    % Sanity check
+    if T_eval ~= length(EvalDates)
+        warning(['VaRESBacktest: eval_dates provided has %d dates but ' ...
+                 'only %d found in evaluation sample — some dates may ' ...
+                 'be outside sample or already excluded'], ...
+                 length(EvalDates), T_eval);
+    end
+end
+
 
 % Safety check: LossMat should not contain NaNs
 if any(isnan(hitsdiff(:)))
@@ -141,8 +243,9 @@ end
 
 
 % Unconditional coverage test from Patton et al. (2019) with HAC
+HitRate = mean(hits);
 UC_xbar = (HitRate - alpha_test)';
-UC_se      = NaN(J,1);
+UC_se   = NaN(J,1);
 for j = 1:J
     [~, UC_se(j)] = hac(ones(T_eval, 1), hitsdiff(:,j), 'type', 'HAC', ...
                  'Intercept', false, 'bandwidth', H_max, 'display', 'off');
@@ -183,7 +286,8 @@ end
 
 % LaTeX table
 if LaTeX
-    fmt_str = sprintf('%%.%df', Decimals);
+    fmt_str   = sprintf('%%.%df', Decimals);
+    fmt_str_t = sprintf('%%.%df', Decimals-1);
     get_stars = @(t) repmat('*', 1, (abs(t) > 1.645) + (abs(t) > 1.960) ...
                              + (abs(t) > 2.576));
     n_cols    = 8;   % name & hitrate & UC & ES & \\
@@ -192,8 +296,8 @@ if LaTeX
     for idx = 1:length(Models_id)
         j = Models_id(idx);
         hr_str = sprintf(fmt_str, UC_xbar(j) + alpha_test);
-        uc_str = [sprintf(fmt_str, UC_t_HAC(j)) get_stars(UC_t_HAC(j))];
-        es_str = [sprintf(fmt_str, ES_t_HAC(j)) get_stars(ES_t_HAC(j))];
+        uc_str = [sprintf(fmt_str_t, UC_t_HAC(j)) get_stars(UC_t_HAC(j))];
+        es_str = [sprintf(fmt_str_t, ES_t_HAC(j)) get_stars(ES_t_HAC(j))];
         table_str(idx,:) = {ModelNames{j}, '&', hr_str, '&', uc_str, ...
                             '&', es_str, '\\'};
     end
@@ -217,6 +321,13 @@ if LaTeX
     BackTestTable.LaTeX = Tab;
 end
 
-
+% Pack additional information
+BackTestTable.alpha_level = alpha_test;
+BackTestTable.PFweights   = PFweights;
+BackTestTable.WindLength  = WindLength;
+BackTestTable.T_eval      = T_eval;
+BackTestTable.dates_eval  = dates_eval;
+BackTestTable.assets      = VaRES.assets;
+BackTestTable.H           = HEval;
 
 end

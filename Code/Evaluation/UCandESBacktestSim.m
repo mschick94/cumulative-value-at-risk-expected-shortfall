@@ -1,9 +1,9 @@
 function [UC_t_HAC, ES_t_HAC, ES_t_bern, HitRate] = ...
-    VaR_UC_BacktestSim(VaR, EmpPITs, r_sim, alpha, H, WinL)
-%VAR_UC_BACKTEST_SIM Minimal backtesting function for Monte Carlo 
+    UCandESBacktestSim(VaR, EmpPITs, r_sim, alpha, H, WinL)
+%VARANDESBACKTEST_SIM Minimal backtesting function for Monte Carlo 
 % simulation study. Computes UC and ES test statistics only.
 %
-%   [UC_t_HAC, ES_t_HAC, ES_t_bern] = VAR_UC_BACKTEST_SIM(VaR, EmpPITs,
+%   [UC_t_HAC, ES_t_HAC, ES_t_bern] = UCandESBacktestSim(VaR, EmpPITs,
 %   r_sim, alpha, H, WinL) computes test statistics for unconditional
 %   coverage and ES adequacy at all alpha levels simultaneously.
 %

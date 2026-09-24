@@ -147,7 +147,7 @@ for b = 1:B
                                            'z_sim', z_sim);
 
     % US and ES test
-    [UC_t_HAC, ES_t_HAC, ES_t_bern, HitRate] = VaR_UC_BacktestSim(VaR, ...
+    [UC_t_HAC, ES_t_HAC, ES_t_bern, HitRate] = UCandESBacktestSim(VaR, ...
                                   EmpPITs, r_sim, alpha, H, WindLength_mc);
 
     % Collect test results

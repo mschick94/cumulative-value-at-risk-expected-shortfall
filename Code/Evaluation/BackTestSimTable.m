@@ -102,6 +102,20 @@ BackTestTable.TwoSided    = TwoSided;
 % Display results table 
 fmt_col = sprintf('  %%%d.%df     ', Decimals+4, Decimals);
 if PrintTable
+    switch dist
+        case 'norm'
+            if EstPars
+                disp(  'GARCH-Normal: Estimated parameters')
+            else
+                disp(  'GARCH-Normal: True parameters')
+            end
+        case 't'
+            if EstPars
+                disp(  'GARCH-t: Estimated parameters')
+            else
+                disp(  'GARCH-t: True parameters')
+            end            
+    end
     fprintf('%-15s', '');
     fprintf('         One-sided                   Two-sided\n');
     fprintf('%-15s', '');

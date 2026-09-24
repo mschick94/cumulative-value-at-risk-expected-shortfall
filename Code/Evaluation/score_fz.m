@@ -4,7 +4,7 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 %
 %   FZEvalTable = SCORE_FZ(VaRES, R) evaluates VaR and ES forecasts using
 %   the jointly consistent FZ scoring function from Patton, Ziegel & Chen
-%   (2019) and applies the MCS procedure of Hansen, Lunde & Nason (2011) to 
+%   (2019) and applies the MCS procedure of Hansen, Lunde & Nason (2011) to
 %   identify the set of superior models.
 %
 %   The FZ loss at time t is:
@@ -14,11 +14,11 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 %   Lower average loss indicates better forecast performance.
 %
 %   INPUTS (required):
-%       VaRES : Struct, output from compute_var_es. Must contain fields:
-%               .VaR        - (T x J x H=1!) VaR forecasts, negative values
-%               .ES         - (T x J x H=1!) ES forecasts, negative values
+%       VaRES : Struct, output from simulate_all_var_es. Must contain:
+%               .VaR        - (T x J x 1 x P) VaR forecasts, negative values
+%               .ES         - (T x J x 1 x P) ES forecasts, negative values
 %               .Models     - (J x 1) cell array of model names
-%               .alpha      - significance level e.g. 0.025
+%               .alpha      - (1 x P) significance levels
 %               .PFweights  - (1 x K) portfolio weights
 %               .WindLength - estimation window length
 %               .dates      - (T x 1) date vector
@@ -26,52 +26,68 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 %       R     : (T x K) matrix of observed asset returns
 %
 %   INPUTS (optional name-value):
-%       'HEval'       : Vector of forecast horizons to evaluate
-%                       (default: all available horizons)
-%       'alpha_level' : Scalar, VaR and ES level required if multiple
-%                       levels are contained in VaRES
-%                       (default: 1st level in VaRES)
-%       'Models_id'   : Vector of positions of models if only subset of
-%                       models in VaRES are to be evaluated
-%                       (defalut: All models are evaluated)
-%       'DateStart'   : Scalar, start date of evaluation sample
-%                       (default: WindLength + 1)
-%       'DateEnd'     : Scalar, end date of evaluation sample
-%                       (default: T - H_max + 1)
-%       'BlockLength' : Scalar, fixed block length for MCS bootstrap
-%                       (default: data-driven via ACF)
-%       'NBootstrap'  : Scalar, number of bootstrap replications
-%                       (default: 50000)
-%       'Decimals'    : Scalar, decimal places in LaTeX table (default: 2)
-%       'MCSLevel'    : Scalar, confidence level for MCS (default: 0.9)
-%       'PrintTable'  : Logical, display table in command window
-%                       (default: true)
+%       'HEval'        : Vector of forecast horizons to evaluate
+%                        (default: all available horizons)
+%       'alpha_level'  : Scalar, VaR/ES level if multiple levels in VaRES
+%                        (default: 1st level in VaRES)
+%       'Models_id'    : Vector of model positions if only subset evaluated
+%                        (default: all models)
+%       'DateStart'    : Scalar, start date of evaluation sample
+%                        (default: WindLength + 1)
+%       'DateEnd'      : Scalar, end date of evaluation sample
+%                        (default: T - H_max + 1)
+%       'ExcludeDates' : (Nx2) matrix of [start_date, end_date] pairs to
+%                        exclude. Uses conservative convention: last date
+%                        <= start and first date >= end (default: [])
+%       'EvalDates'    : (Tx1) vector of dates to use for evaluation.
+%                        If provided, overrides DateStart/DateEnd and
+%                        ExcludeQuant — applied via intersect with
+%                        dates_eval. Warning if lengths don't match.
+%                        (default: [])
+%       'ExcludeQuant' : Scalar, quantile threshold for excluding extreme
+%                        loss-spread days. Days where max-min cross-
+%                        sectional loss difference exceeds this quantile
+%                        are excluded. Apply consistently across models
+%                        by determining EvalDates from all models first.
+%                        (default: [])
+%       'MCSTest'      : Logical, perform MCS test (default: true)
+%       'BlockLength'  : Scalar, fixed block length for MCS bootstrap.
+%                        If empty, data-driven via max significant ACF lag
+%                        (default: [])
+%       'NBootstrap'   : Scalar, bootstrap replications (default: 50000)
+%       'Decimals'     : Scalar, decimal places in LaTeX table (default: 2)
+%       'MCSLevel'     : Scalar, MCS confidence level (default: 0.9)
+%       'PrintTable'   : Logical, display table in output window (default: true)
 %
 %   OUTPUT:
-%       FZEvalTable : Struct containing evaluation results:
-%                     .LaTeX      - MATLAB table with LaTeX-formatted loss
-%                                   strings, bold best model, grey MCS
-%                                   survivors (ready for copy-pasting)
-%                     .Losses     - MATLAB table with numeric mean losses,
-%                                   models as rows, horizons as columns
-%                     .alpha      - significance level used
-%                     .PFweights  - portfolio weights used
-%                     .WindLength - estimation window length
-%                     .T_eval     - number of evaluation observations
-%                     .dates_eval - dates of evaluation sample
-%                     .assets     - asset names
-%                     .H          - simulation horizon
+%       FZEvalTable : Struct containing:
+%                     .alpha_level - significance level used
+%                     .PFweights   - portfolio weights used
+%                     .WindLength  - estimation window length
+%                     .T_eval      - number of evaluation observations
+%                     .dates_eval  - dates of evaluation sample
+%                     .assets      - asset names
+%                     .H           - evaluated horizons
+%                     .LaTeX       - MATLAB table with LaTeX-formatted loss
+%                                    strings, bold best model, grey MCS
+%                                    survivors (only if MCSTest=true)
+%                     .Losses      - MATLAB table with numeric mean losses,
+%                                    models as rows, horizons as columns
+%                                    (only if MCSTest=true)
 %
 %   NOTES:
-%       - Block length for MCS bootstrap is selected as the maximum
-%         significant ACF lag across all models, capped at
-%         max(floor(T^(1/3)), 2*H_max) to avoid spurious large blocks
-%       - Realized cumulative PF returns are constructed as
+%       - Block length for MCS bootstrap: max significant ACF lag across
+%         all models, capped at max(floor(T^(1/3)), 2*H_max)
+%       - Realized cumulative PF returns constructed as
 %         r_t^PF(h) = sum(R(t:t+h-1,:) * w') aligned at forecast origin t
-%       - Requires MCS implementation from Kevin Sheppard's MFE Toolbox:
+%       - EvalDates workflow: run score_fz once with all models and
+%         ExcludeQuant to obtain FZEvalTable.dates_eval, then pass as
+%         EvalDates to all subsequent evaluations for consistent samples
+%       - Requires MCS from Kevin Sheppard's MFE Toolbox:
 %         https://www.mathworks.com/matlabcentral/fileexchange/170381
-%       - Requires \usepackage{colortbl} in LaTeX preamble for cellcolor
-%         (e.g. \definecolor{gray}{rgb}{0.90, 0.90, 0.90})
+%       - Requires \usepackage{colortbl} for LaTeX cellcolor shading
+%       - Implementation only supports h = H, for h = 1,...,H from return
+%         simulations
 %
 %   REFERENCES:
 %       Patton, A., Ziegel, J., Chen, R. (2019). Dynamic semiparametric
@@ -84,12 +100,15 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 
 % Name-value inputs
 p = inputParser;
-addParameter(p, 'HEval',        []); % default is all horizons provided
+addParameter(p, 'HEval',        []); 
 addParameter(p, 'alpha_level',  []);
 addParameter(p, 'Models_id',    []);
 addParameter(p, 'DateStart',    []);
 addParameter(p, 'DateEnd',      []);
 addParameter(p, 'ExcludeDates', []);
+addParameter(p, 'EvalDates', []);
+addParameter(p, 'ExcludeQuant', []);
+addParameter(p, 'MCSTest',      true)
 addParameter(p, 'BlockLength',  []);
 addParameter(p, 'NBootstrap',   50000);
 addParameter(p, 'Decimals',     2);
@@ -102,7 +121,10 @@ alpha_level  = p.Results.alpha_level;
 Models_id    = p.Results.Models_id;
 DateStart    = p.Results.DateStart;
 DateEnd      = p.Results.DateEnd;
+EvalDates    = p.Results.EvalDates;
 ExcludeDates = p.Results.ExcludeDates;
+ExcludeQuant = p.Results.ExcludeQuant;
+MCSTest      = p.Results.MCSTest;
 BlockLength  = p.Results.BlockLength;
 NBootstrap   = p.Results.NBootstrap;
 Decimals     = p.Results.Decimals;
@@ -177,9 +199,9 @@ VaRmat = VaRES.VaR(:, Models_id, alpha_ind);
 ESmat  = VaRES.ES(:, Models_id, alpha_ind);
 
 
-% Compute FZ losses from Patton et al. (2019) for specified horizons h
+% Compute FZ losses from Patton et al. (2019) for specified horizons h = H
 LossMat = NaN(T, J, Hlength); % same as NaN(T, J); 
-for i = 1:Hlength
+for i = 1:Hlength  % Hlength = 1!
 
     h = HEval(i);         % actual forecast horizon
     h_idx = min(h, n_h);  % maps actual horizon to array index (if n_h=1)
@@ -231,10 +253,6 @@ LossMat    = LossMat(t_start_eval:t_end_eval, :, :);
 dates_eval = dates(t_start_eval:t_end_eval);
 T_eval     = size(dates_eval,1);
 
-% % Quick and dirty inspection losses
-% figure
-% plot(dates_eval, LossMat(:,1:end))
-
 % Exclude specified date ranges
 if ~isempty(ExcludeDates)
     excl_ind = false(T_eval, 1);
@@ -256,15 +274,67 @@ if ~isempty(ExcludeDates)
     % fprintf('score_fz: excluded %d observations\n', sum(excl_ind));
 end
 
+
+% If eval_dates provided externally, use directly
+if ~isempty(EvalDates)
+    % Find matching indices in dates_eval
+    [~, keep_idx] = intersect(dates_eval, EvalDates);
+    keep_idx   = sort(keep_idx);   % maintain chronological order
+    LossMat    = LossMat(keep_idx, :, :);
+    dates_eval = dates_eval(keep_idx);
+    T_eval     = size(dates_eval, 1);
+    % Sanity check
+    if T_eval ~= length(EvalDates)
+        warning(['score_fz: eval_dates provided has %d dates but only ' ...
+                 '%d found in evaluation sample — some dates may be ' ...
+                 'outside sample or already excluded'], ...
+                 length(EvalDates), T_eval);
+    end
+end
+
+
+% % Quick and dirty inspection at losses
+% figure
+% plot(dates_eval, LossMat(:,1:end))
+% LossMat_before_cur = LossMat;
+
+% Exclude extreme losses/loss differences
+if ~isempty(ExcludeQuant)
+    MaxLossDiff  = max(LossMat, [], 2) - min(LossMat, [], 2);
+    QuantDropInd = (MaxLossDiff > quantile(MaxLossDiff, 1-ExcludeQuant));
+    LossMat      = LossMat(~QuantDropInd,:);
+    dates_eval   = dates_eval(~QuantDropInd);
+    T_eval       = size(LossMat,1);
+
+    % figure
+    % plot(LossMat_before_cur)
+    % hold on
+    % yline(quantile(MaxLossDiff, 1-ExcludeQuant))
+    % 
+    % figure
+    % plot(LossMat)
+end
+
+
 % Safety check: LossMat should not contain NaNs
 if any(isnan(LossMat(:)))
     warning(['score_fz: NaN values found in LossMat after evaluation ' ...
              'sample restriction; check t_start_eval and t_end_eval']);
 end
 
-% % Quick and dirty inspection losses
-% figure
-% plot(dates_eval, LossMat(:,1:end))
+
+% Pack additional information
+FZEvalTable.alpha_level = alpha_test;
+FZEvalTable.PFweights   = PFweights;
+FZEvalTable.WindLength  = WindLength;
+FZEvalTable.T_eval      = T_eval;
+FZEvalTable.dates_eval  = dates_eval;
+FZEvalTable.assets      = VaRES.assets;
+FZEvalTable.H           = HEval;
+
+if ~MCSTest
+    return
+end
 
 % Forecast evaluation for specified horizons h
 includedMCS = cell(Hlength, 1);
@@ -303,15 +373,6 @@ h_col_names = arrayfun(@(h) sprintf('h%d', h), HEval, ...
 NumericTab = array2table(meanLosses, 'RowNames', ModelNames(Models_id), ...
                          'VariableNames', h_col_names);
 FZEvalTable.Losses = NumericTab;
-
-% Pack additional information
-FZEvalTable.alpha_level = alpha_test;
-FZEvalTable.PFweights   = PFweights;
-FZEvalTable.WindLength  = WindLength;
-FZEvalTable.T_eval      = T_eval;
-FZEvalTable.dates_eval  = dates_eval;
-FZEvalTable.assets      = VaRES.assets;
-FZEvalTable.H           = HEval;
 
 end
 

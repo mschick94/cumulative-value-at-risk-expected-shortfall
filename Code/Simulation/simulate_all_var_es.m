@@ -100,9 +100,9 @@ j           = 0;
 m_start     = 1;
 
 % If crashed, uncomment the following three lines and run again
-load('Output\VaRandES\checkpoint.mat')
-j = length(VaRESOut.Models); 
-m_start = j + 1;
+% load('Output\VaRandES\checkpoint.mat')
+% j = length(VaRESOut.Models); 
+% m_start = j + 1;
 
 p = length(alpha);
 for m = m_start:J

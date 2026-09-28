@@ -394,6 +394,15 @@ classdef RiskSim
             inv_gamma    = p.Results.invGamma;
 
 
+            % Sanity check: inv_gamma should only be provided for t-copula
+            if ~isempty(inv_gamma) && ~strcmp(dist, 't')
+                error(['simulateCopulaCCC: inv_gamma provided but ' ...
+                       'dist=''%s''. inv_gamma is only used for ' ...
+                       't-copula. Did you forget to set ''dist'', ' ...
+                       '''t''?'], dist);
+            end
+
+
             % Draw standard normals internally if not supplied
             if isempty(StdNormDraws)
                 StdNormDraws = RiskSim.drawZ(K, H, M);
@@ -514,6 +523,15 @@ function u = simulateCopulaDCC(pars, R_bar, R_last, Q_last, H, M, K, ...
             nu           = p.Results.nu;
             StdNormDraws = p.Results.StdNormDraws;
             inv_gamma    = p.Results.invGamma;
+
+            
+            % Sanity check: inv_gamma should only be provided for t-copula
+            if ~isempty(inv_gamma) && ~strcmp(dist, 't')
+                error(['simulateCopulaDCC: inv_gamma provided but ' ...
+                       'dist=''%s''. inv_gamma is only used for ' ...
+                       't-copula. Did you forget to set ''dist'', ' ...
+                       '''t''?'], dist);
+            end
 
 
             % Draw standard normals internally if not supplied

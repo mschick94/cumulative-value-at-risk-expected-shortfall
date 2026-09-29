@@ -299,7 +299,7 @@ if K == 1 && strcmp(GARCHspec, 'heavy')
 end
 
 % Simulate uniforms from copula
-if K == 1 && strcmp(margDist, 'norm')
+if K == 1 && strcmp(margDist, 'norm') && ~empiricalPITs
     z_sim = reshape(squeeze(StdN), H, M, 1);
 else
     switch CorrModel

@@ -34,9 +34,9 @@ R        = table2array(ReturnData(:, assets_q));
 if K == 10
     RV = RVData.RCOV_CTC_vech_10;
 elseif K == 30
-    RV = RVData.RCOV_CTC_vech_20;
-elseif K == 50
     RV = RVData.RCOV_CTC_vech_30;
+elseif K == 50
+    RV = RVData.RCOV_CTC_vech_50;
 end
 
 % Equally weighted portfolio
@@ -81,17 +81,17 @@ EstOut = estimate_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
                         'ReestFreq', reest_freq, 'assets', assets, ...
                         'NumWorkers', NumberWorkers, 'dates', dates);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
                 'NumWorkers', NumberWorkers);
 
-% Empirical 
-estimate_copula(EstOut, 'copula_dist', 'norm', 'corr_model', 'CCC', ...
-                'empirical_pits', true, 'NumWorkers', NumberWorkers);
+% % Empirical 
+% estimate_copula(EstOut, 'copula_dist', 'norm', 'corr_model', 'CCC', ...
+%                 'empirical_pits', true, 'NumWorkers', NumberWorkers);
 
 
 %%% GARCH-t
@@ -99,9 +99,9 @@ EstOut = estimate_garch(R, 'dist', 't', 'WindLength', WindLength, ...
                         'ReestFreq', reest_freq, 'assets', assets, ...
                         'NumWorkers', NumberWorkers, 'dates', dates);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
@@ -112,9 +112,9 @@ EstOut = estimate_garch(R, 'dist', 'skewt', 'WindLength', WindLength, ...
                         'ReestFreq', reest_freq, 'assets', assets, ...
                         'NumWorkers', NumberWorkers, 'dates', dates);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
@@ -126,9 +126,9 @@ EstOut = estimate_garch(R, 'dist', 'laplace', 'WindLength', WindLength, ...
                         'ReestFreq', reest_freq, 'assets', assets, ...
                         'NumWorkers', NumberWorkers, 'dates', dates);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
@@ -141,9 +141,9 @@ EstOut = estimate_garch(R, 'dist', 'norm', 'WindLength', WindLength, ...
                         'NumWorkers', NumberWorkers, 'dates', dates, ...
                         'RiskMetrics', true);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
@@ -159,17 +159,17 @@ EstOut = estimate_gjr_garch(R, 'dist', 'norm', ...
                             'ReestFreq', reest_freq, 'assets', assets, ...
                             'NumWorkers', NumberWorkers, 'dates', dates);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
                 'NumWorkers', NumberWorkers);
 
-% Empirical 
-estimate_copula(EstOut, 'copula_dist', 'norm', 'corr_model', 'CCC', ...
-                'empirical_pits', true, 'NumWorkers', NumberWorkers);
+% % Empirical 
+% estimate_copula(EstOut, 'copula_dist', 'norm', 'corr_model', 'CCC', ...
+%                 'empirical_pits', true, 'NumWorkers', NumberWorkers);
 
 
 %%% GJR-GARCH-t
@@ -177,9 +177,9 @@ EstOut = estimate_gjr_garch(R, 'dist', 't', 'WindLength', WindLength, ...
                             'ReestFreq', reest_freq, 'assets', assets, ...
                             'NumWorkers', NumberWorkers, 'dates', dates);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
@@ -191,9 +191,9 @@ EstOut = estimate_gjr_garch(R, 'dist', 'skewt', ...
                             'ReestFreq', reest_freq, 'assets', assets, ...
                             'NumWorkers', NumberWorkers, 'dates', dates);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
@@ -206,9 +206,9 @@ EstOut = estimate_gjr_garch(R, 'dist', 'laplace', ...
                             'ReestFreq', reest_freq, 'assets', assets, ...
                             'NumWorkers', NumberWorkers, 'dates', dates);
 
-% Gaussian-CCC
-estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
-                'NumWorkers', NumberWorkers);
+% % Gaussian-CCC
+% estimate_copula(EstOut, 'copula_dist', 'norm',  'corr_model', 'CCC', ...
+%                 'NumWorkers', NumberWorkers);
 
 % t-CCC 
 estimate_copula(EstOut, 'copula_dist', 't',  'corr_model', 'CCC', ...
@@ -272,15 +272,12 @@ if NumberWorkers > 1
 end
 
 
-% Add additional forecasts from other models or weighting schemes here
-
 % VaRandES already saved inside simulate_all_var_es
 % Re-save with PF benchmarks added
 assets_str = strjoin(assets, '_');
 filename   = sprintf('Output/VaRandES/VaRandES_EquallyWeighted_%s.mat', ...
                      assets_str);
 save(filename, 'VaRandES');
-
 
 
 %% Monte Carlo - GARCH-N
@@ -327,3 +324,74 @@ BackTestSimulation(TruePars, 'T_sim', T_sim, 'M_sim', Msim, 'H', H_mc, ...
                    'EstPars', false, 'WindLength_mc', WindLength_mc, ...
                    'reest_freq_mc', reest_freq_mc);
 
+
+
+%% Merge corrected version of t-Copula simulation
+% load('Output\VaRandES\K=50ANPASSENWRONG_VaRandES_EquallyWeighted_AXP_BA_CAT_GE_HD_HON_IBM_JPM_KO_MCD_PFE_PG_WMT_XOM_AIG_AEP_ABT_AEE_BAX_BAC_C_DOV_DUK_F_JNJ_KEY_LLY_MO_MTB_NOC.mat');
+% newdata = load('Output\VaRandES\K=50ANPASSENCorrected_VaRandES_EquallyWeighted_AXP_BA_CAT_GE_HD_HON_IBM_JPM_KO_MCD_PFE_PG_WMT_XOM_AIG_AEP_ABT_AEE_BAX_BAC_C_DOV_DUK_F_JNJ_KEY_LLY_MO_MTB_NOC.mat');
+% 
+% K = 50;
+% VarNames = ReturnData.Properties.VariableNames;
+% VarNames = VarNames(2:K+1);
+% assets = cellfun(@(x) x(2:end-1), VarNames, 'UniformOutput', false);
+% 
+% 
+% % Models to replace from newdata
+% models_to_replace = {
+%     'GARCH_norm_CCC_t'
+%     'GARCH_t_CCC_t'
+%     'GARCH_skewt_CCC_t'
+%     'GARCH_laplace_CCC_t'
+%     'RiskMetrics_GARCH_norm_CCC_t'
+%     'GJRGARCH_norm_CCC_t'
+%     'GJRGARCH_t_CCC_t'
+%     'GJRGARCH_skewt_CCC_t'
+%     'GJRGARCH_laplace_CCC_t'
+% };
+% 
+% % Loop over models to replace
+% for m = 1:length(models_to_replace)
+%     model_name = models_to_replace{m};
+% 
+%     % Find position in WRONG VaRandES (destination)
+%     j_dest = find(strcmp(VaRandES.Models, model_name));
+% 
+%     % Find position in newdata (source)
+%     j_src  = find(strcmp(newdata.VaRESOut.Models, model_name));
+% 
+%     % Verify both found
+%     if isempty(j_dest)
+%         error('Model %s not found in VaRandES!', model_name);
+%     end
+%     if isempty(j_src)
+%         error('Model %s not found in newdata!', model_name);
+%     end
+% 
+%     fprintf('Replacing j=%d in VaRandES with j=%d from newdata: %s\n', ...
+%             j_dest, j_src, model_name);
+% 
+%     % Replace VaR, ES, EmpPITs
+%     VaRandES.VaR(:,j_dest,:,:)  = newdata.VaRESOut.VaR(:,j_src,:,:);
+%     VaRandES.ES(:,j_dest,:,:)   = newdata.VaRESOut.ES(:,j_src,:,:);
+%     VaRandES.EmpPITs(:,j_dest)  = newdata.VaRESOut.EmpPITs(:,j_src);
+% end
+% 
+% 
+% % Verify replacements look sane and correct
+% fprintf('\nVerification — mean VaR per replaced model:\n');
+% fprintf('%-40s %12s %12s\n', 'Model', 'VaRandES', 'newdata');
+% fprintf('%s\n', repmat('-', 1, 67));
+% for m = 1:length(models_to_replace)
+%     model_name = models_to_replace{m};
+%     j_dest = find(strcmp(VaRandES.Models, model_name));
+%     j_src  = find(strcmp(newdata.VaRESOut.Models, model_name));
+%     mean_dest = mean(VaRandES.VaR(1001:end, j_dest, 1, 1), 'omitnan');
+%     mean_src  = mean(newdata.VaRESOut.VaR(1001:end, j_src, 1, 1), 'omitnan');
+%     fprintf('%-40s %12.4f %12.4f\n', model_name, mean_dest, mean_src);
+% end
+% 
+% 
+% assets_str = strjoin(assets, '_');
+% filename   = sprintf('Output/VaRandES/VaRandES_EquallyWeighted_%s.mat', ...
+%                      assets_str);
+% save(filename, 'VaRandES');

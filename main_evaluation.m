@@ -34,9 +34,10 @@ Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
 
 
 %% Load model forecasts for K
+clearvars -except ReturnData
 
 % Numbe of assets K = 10, 30, or 50
-K = 50;
+K = 30;
 
 % Read in Returns as well as VaR and ES forecasts per model
 VarNames = ReturnData.Properties.VariableNames;
@@ -47,11 +48,12 @@ R        = table2array(ReturnData(:, assets_q));
 load(sprintf('Output/VaRandES/VaRandES_EquallyWeighted_%s.mat', ...
              strjoin(assets, '_')));
 
-% Load Annes forecasts 
-
-% Prepare result strucutre to be merged with other models and for FZ loss
-VaRandES.VaR = squeeze(VaRandES.VaR); % Depends on what Anne does :)
+% Prepare result structure to be merged with other models
+VaRandES.VaR = squeeze(VaRandES.VaR);
 VaRandES.ES  = squeeze(VaRandES.ES);
+
+% Load univariate HEAVY multivariate RiskMetrics and HEAVY-GAS
+VaRandES = merge_mv_models(VaRandES);
 
 
 % Dates excluded according to maximum loss differentials among all models
@@ -139,8 +141,8 @@ Tab5 = Table_0010_q0010.LaTeX;
 Tab5.Properties.VariableNames = strcat(Tab5.Properties.VariableNames,'_5');
 Tab6 = Table_0025_q0010.LaTeX;
 Tab6.Properties.VariableNames = strcat(Tab6.Properties.VariableNames,'_6');
-% disp([Table_0010_all.LaTeX(:,1:end-1) Tab2(:,2:end-1) ...
-%       Tab3(:,2:end-1) Tab4(:,2:end-1) Tab5(:,2:end-1) Tab6(:,2:end)])
+disp([Table_0010_all.LaTeX(:,1:end-1) Tab2(:,2:end-1) ...
+      Tab3(:,2:end-1) Tab4(:,2:end-1) Tab5(:,2:end-1) Tab6(:,2:end)])
 
 
 

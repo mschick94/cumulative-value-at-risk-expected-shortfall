@@ -3,7 +3,7 @@ function SimBacktest = BackTestSimulation(TruePars, varargin)
 %
 %   SimBacktest = BACKTESTSIMULATION(TruePars) runs B Monte Carlo
 %   replications under a GARCH(1,1) DGP and collects UC and ES test
-%   statistics for size analysis.
+%   statistics (full-sample HAC and null-imposed HAC) for size analysis.
 %
 %   INPUTS (required):
 %       TruePars : Parameter vector of true DGP parameters
@@ -12,10 +12,12 @@ function SimBacktest = BackTestSimulation(TruePars, varargin)
 %
 %   INPUTS (optional name-value):
 %       'T_sim'         : Scalar, time series length (default: 5000)
-%       'M_sim'         : Scalar, simulation paths for VaR/ES (default: 25000)
+%       'M_sim'         : Scalar, simulation paths for VaR/ES 
+%                         (default: 25000)
 %       'H'             : Scalar, forecast horizon (default: 10)
 %       'B_sim'         : Scalar, Monte Carlo replications (default: 1000)
-%       'alpha'         : (1xP) significance levels (default: [0.01 0.025])
+%       'seed'          : Scalar, seed shift, rng(b + seed) (default: 0)
+%       'alpha'         : (1xP) VaR/ES levels (default: [0.01 0.025])
 %       'dist'          : String, DGP and model distribution
 %                         'norm' - GARCH-Normal (default)
 %                         't'    - GARCH-t
@@ -25,12 +27,14 @@ function SimBacktest = BackTestSimulation(TruePars, varargin)
 %       'reest_freq_mc' : Scalar, re-estimation frequency (default: 250)
 %
 %   OUTPUT:
-%       SimBacktest : Struct containing test statistics and settings.
+%       SimBacktest : Struct with test statistics and settings.
+%                     Full-sample HAC and null-imposed HAC results (B x P), 
+%                     see UCandESBacktestSubSamplingSim.
 %                     Saved to Output/SimBacktests/ automatically.
 %
 %   NOTES:
 %       - z_sim pre-drawn once outside loop for speed up
-%       - rng(b) per replication for reproducibility
+%       - rng(b + seed) per replication for reproducibility
 %       - Results saved as SimBacktest_<EstPars|TruePars>_GARCH_<dist>_
 %         B<B>_T<T>_H<H>_M<M>.mat
 
@@ -43,7 +47,8 @@ addParameter(p, 'T_sim',         5000);
 addParameter(p, 'M_sim',         25000); 
 addParameter(p, 'H',             10); 
 addParameter(p, 'B_sim',         1000); 
-addParameter(p, 'alpha',         [0.01 0.25]);
+addParameter(p, 'seed',          0); 
+addParameter(p, 'alpha',         [0.01 0.025]);
 addParameter(p, 'dist',          'norm');
 addParameter(p, 'EstPars',       true);
 addParameter(p, 'WindLength_mc', 1000); 
@@ -54,6 +59,7 @@ T_sim         = p.Results.T_sim;
 M_sim         = p.Results.M_sim;
 H             = p.Results.H;
 B             = p.Results.B_sim;
+seed          = p.Results.seed;
 alpha         = p.Results.alpha;
 dist          = p.Results.dist;
 EstPars       = p.Results.EstPars;
@@ -89,28 +95,28 @@ switch dist
         end
 end
 
-% Draw random numbers for PF return simulation (also possible for 
-% h-step-ahead simulation using the t-distribution iff true parameters are 
-% used, otherwise simulate_var_es_univ.m will ignore z_sim)
-if tDist
-    rng(1)
-    z_sim = trnd(nu_true, M_sim, H) / sqrt(nu_true/(nu_true-2));
-else
-    rng(1)
-    z_sim = randn(M_sim, H);
-end
-
 % Output matrices
-UC_t_HAC_b   = NaN(B, 2);
-ES_t_HAC_b   = NaN(B, 2);
-ES_t_bern_b  = NaN(B, 2);
-HitRate_b    = NaN(B, 2);
-GARCH_pars_b = NaN(B, pars_n);
+quanNr           = length(alpha);
+UC_t_HAC_b       = NaN(B, quanNr);
+UC_t_HAC0_b      = NaN(B, quanNr);
+ES_t_HAC_b       = NaN(B, quanNr);
+ES_t_HAC0_b      = NaN(B, quanNr);
+ES_t_Numerator_b = NaN(H, quanNr);
+HitRate_b        = NaN(B, quanNr);
+GARCH_pars_b     = NaN(B, pars_n);
 
 % MC Simulations
 for b = 1:B
+    
+    if tDist
+        rng((b + seed)*12345)
+        z_sim = trnd(nu_true, M_sim, H) / sqrt(nu_true/(nu_true-2));
+    else
+        rng((b + seed)*12345)
+        z_sim = randn(M_sim, H);
+    end
 
-    rng(b)
+    rng(b+seed)
     if tDist
         % Simulate GARCH(1,1)-t
         z_t = trnd(nu_true, T_sim, 1) / sqrt(nu_true/(nu_true-2));
@@ -139,16 +145,13 @@ for b = 1:B
 
     % Simulate VaR and ES 
     [VaR, ~, EmpPITs, Pars] = simulate_var_es_univ(r_sim, alpha, ...
-                                           'H', H, 'M', M_sim, ...,
-                                           'dist', dist, ...
-                                           'WindLength', WindLength_mc, ...
-                                           'ReestFreq', reest_freq_mc, ...
-                                           'TruePars', TrueParsProvide, ...
-                                           'z_sim', z_sim);
+        'H', H, 'M', M_sim, 'dist', dist, 'WindLength', WindLength_mc, ...
+        'ReestFreq', reest_freq_mc, 'TruePars', TrueParsProvide, ...
+        'z_sim', z_sim);
 
-    % US and ES test
-    [UC_t_HAC, ES_t_HAC, ES_t_bern, HitRate] = UCandESBacktestSim(VaR, ...
-                                  EmpPITs, r_sim, alpha, H, WindLength_mc);
+    % UC and ES test with HAC standard errors
+    [UC_t_HAC, ES_t_HAC, HitRate, ES_t_Numerator, UC_t_HAC0, ES_t_HAC0] = ...
+        UCandESBacktestSim(VaR, EmpPITs, r_sim, alpha, H, WindLength_mc);
 
     % Collect test results
     GARCH_pars_b(b, 1:4) = [mean(Pars.mu(WindLength_mc+1:end)), ...
@@ -157,10 +160,13 @@ for b = 1:B
         GARCH_pars_b(b, 5) = mean(Pars.margNu(WindLength_mc+1:end,:));
     end
 
-    UC_t_HAC_b(b,:)  = UC_t_HAC;
-    ES_t_HAC_b(b,:)  = ES_t_HAC;
-    ES_t_bern_b(b,:) = ES_t_bern;
-    HitRate_b(b,:)   = HitRate;
+    UC_t_HAC_b(b,:)       = UC_t_HAC;
+    UC_t_HAC0_b(b,:)      = UC_t_HAC0;
+    ES_t_HAC_b(b,:)       = ES_t_HAC;
+    ES_t_HAC0_b(b,:)      = ES_t_HAC0;
+    ES_t_Numerator_b(b,:) = ES_t_Numerator;
+    HitRate_b(b,:)        = HitRate;
+    HitRateSub_b(:,:,b)   = HitRateSub;
 
     fprintf('Replication %d/%d done\n', b, B);
 
@@ -169,12 +175,14 @@ end
 
 % Pack simulation results
 SimBacktest.UC_t_HAC      = UC_t_HAC_b;
+SimBacktest.UC_t_HAC0     = UC_t_HAC0_b;
 SimBacktest.ES_t_HAC      = ES_t_HAC_b;
-SimBacktest.ES_t_bern     = ES_t_bern_b;
+SimBacktest.ES_t_HAC0     = ES_t_HAC0_b;
 SimBacktest.HitRate       = HitRate_b;
 SimBacktest.GARCH_pars    = GARCH_pars_b;
 SimBacktest.alpha         = alpha;
 SimBacktest.B             = B;
+SimBacktest.SeedShift     = seed;
 SimBacktest.T_sim         = T_sim;
 SimBacktest.H_mc          = H;
 SimBacktest.Msim          = M_sim;

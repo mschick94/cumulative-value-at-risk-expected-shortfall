@@ -74,8 +74,8 @@ MeanHitRate = mean(SimRes.SimBacktest.HitRate);
 
 % One-sided and two sided tests at significance level 'SigLevel'
 alphaNo = length(alpha);
-OneSided = NaN(3,alphaNo);
-TwoSided = NaN(3,alphaNo);
+OneSided = NaN(4,alphaNo);
+TwoSided = NaN(4,alphaNo);
 
 % Critical values
 cv_one = norminv(1 - SigLevel);       % e.g. 1.645 for 5%
@@ -89,15 +89,32 @@ TwoSided(1,:) = mean(abs(SimRes.SimBacktest.UC_t_HAC) > cv_two, 1);
 OneSided(2,:) = mean(SimRes.SimBacktest.ES_t_HAC > cv_one, 1);
 TwoSided(2,:) = mean(abs(SimRes.SimBacktest.ES_t_HAC) > cv_two, 1);
 
-% ES-bernoulli test
-OneSided(3,:) = mean(SimRes.SimBacktest.ES_t_bern > cv_one, 1);
-TwoSided(3,:) = mean(abs(SimRes.SimBacktest.ES_t_bern) > cv_two, 1);
+% Null-imposed UC-HAC test
+OneSided(3,:) = mean(SimRes.SimBacktest.UC_t_HAC0 > cv_one, 1);
+TwoSided(3,:) = mean(abs(SimRes.SimBacktest.UC_t_HAC0) > cv_two, 1);
+
+% Null-imposed ES-HAC test
+OneSided(4,:) = mean(SimRes.SimBacktest.ES_t_HAC0 > cv_one, 1);
+TwoSided(4,:) = mean(abs(SimRes.SimBacktest.ES_t_HAC0) > cv_two, 1);
 
 % Pack output structure
 BackTestTable.MeanHitRate = MeanHitRate;
 BackTestTable.OneSided    = OneSided;
 BackTestTable.TwoSided    = TwoSided;
 
+% % Check for non-positive variance estimate or zero violations
+% Tstats = {SimRes.SimBacktest.UC_t_HAC,  SimRes.SimBacktest.ES_t_HAC, ...
+%           SimRes.SimBacktest.UC_t_HAC0, SimRes.SimBacktest.ES_t_HAC0};
+% NaNCount = NaN(4, 2);
+% for r = 1:4
+%     X = Tstats{r};
+%     valid = ~isnan(X);
+%     OneSided(r,:) = sum((X > cv_one) & valid, 1) ./ sum(valid, 1);
+%     TwoSided(r,:) = sum((abs(X) > cv_two) & valid, 1) ./ sum(valid, 1);
+%     NaNCount(r,:) = sum(~valid, 1);
+% end
+% 
+% ZeroHits = sum(SimRes.SimBacktest.HitRate == 0, 1); % Never happens here!
 
 % Display results table 
 fmt_col = sprintf('  %%%d.%df     ', Decimals+4, Decimals);
@@ -127,8 +144,8 @@ if PrintTable
     end
     fprintf('\n%s\n', repmat('-', 1, 17 + alphaNo*26));
     
-    test_names = {'UC-HAC', 'ES-HAC', 'ES-Bern'};
-    for j = 1:3
+    test_names = {'UC-HAC', 'ES-HAC', 'UC-HAC0', 'ES-HAC0',};
+    for j = 1:4
         fprintf('%-15s', test_names{j});
         for i = 1:alphaNo
             fprintf(fmt_col, OneSided(j,i));
@@ -140,8 +157,9 @@ if PrintTable
     end
     fprintf('%s\n', repmat('-', 1, 17 + alphaNo*26));
     fprintf('%-15s', 'Mean HitRate');
+    fmt_col2 = sprintf('  %%%d.%df     ', Decimals+4, Decimals+1);
     for i = 1:alphaNo
-        fprintf(fmt_col, MeanHitRate(i));
+        fprintf(fmt_col2, MeanHitRate(i));
     end
     fprintf('\n');
     disp(' ')
@@ -149,12 +167,12 @@ end
 
 % Plot simulated test distributions
 if PlotFig
-    test_names = {'UC-HAC', 'ES-HAC', 'ES-Bernoulli'};
-    t_fields   = {'UC_t_HAC', 'ES_t_HAC', 'ES_t_bern'};
+    test_names = {'UC-HAC', 'ES-HAC', 'UC-HAC0', 'ES-HAC0',};
+    t_fields   = {'UC_t_HAC', 'ES_t_HAC', 'UC_t_HAC0', 'ES_t_HAC0',};
     x_range    = linspace(-5, 5, 1000);
     
     for i = 1:length(alpha)
-        for j = 1:3
+        for j = 1:4
             figure
             histogram(SimRes.SimBacktest.(t_fields{j})(:,i), ...
                       'Normalization', 'pdf', 'FaceColor', [0.7 0.7 0.7])
@@ -177,17 +195,18 @@ if LaTeX
     
     % Build string table structure
     n_cols    = 2 * alphaNo * 2 + 2;  
-    table_str = strings(3, n_cols);
+    table_str = strings(4, n_cols);
     table_str(1,1) = "UC-HAC";
     table_str(2,1) = "ES-HAC";
-    table_str(3,1) = "ES-Bern";
+    table_str(3,1) = "UC-HAC$_0$";
+    table_str(4,1) = "ES-HAC$_0$";
     table_str(:,2)   = '&';
     table_str(:,end) = '\\';
     
     col = 3;
     % One-sided
     for i = 1:alphaNo
-        for j = 1:3
+        for j = 1:4
             table_str(j, col) = sprintf(format_str, OneSided(j,i));
         end
         table_str(:, col+1) = '&';
@@ -195,7 +214,7 @@ if LaTeX
     end
     % Two-sided
     for i = 1:alphaNo
-        for j = 1:3
+        for j = 1:4
             table_str(j, col) = sprintf(format_str, TwoSided(j,i));
         end
         if i < alphaNo

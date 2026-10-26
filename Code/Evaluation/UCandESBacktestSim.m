@@ -1,11 +1,11 @@
-function [UC_t_HAC, ES_t_HAC, ES_t_bern, HitRate] = ...
+function [UC_t_HAC, ES_t_HAC, HitRate, ES_t_numerator, UC_t_HAC0, ES_t_HAC0] = ...
     UCandESBacktestSim(VaR, EmpPITs, r_sim, alpha, H, WinL)
 %VARANDESBACKTEST_SIM Minimal backtesting function for Monte Carlo 
 % simulation study. Computes UC and ES test statistics only.
 %
-%   [UC_t_HAC, ES_t_HAC, ES_t_bern] = UCandESBacktestSim(VaR, EmpPITs,
-%   r_sim, alpha, H, WinL) computes test statistics for unconditional
-%   coverage and ES adequacy at all alpha levels simultaneously.
+%   [UC_t_HAC, ES_t_HAC] = UCandESBacktestSim(VaR, EmpPITs, r_sim, alpha, H
+%   WinL) computes test statistics for unconditional coverage and ES 
+%   adequacy at all alpha levels simultaneously.
 %
 %   INPUTS:
 %       VaR     : (T x P) VaR forecasts, negative values
@@ -60,12 +60,33 @@ T_eval = size(hitsdiff, 1);
 q_nr   = length(alpha);
 xbar   = HitRate - alpha;
 
-se = NaN(1,q_nr);
+se  = NaN(1,q_nr);
+se0 = NaN(1,q_nr);
 for i = 1:q_nr
     [~, se(i)] = hac(ones(T_eval, 1), hitsdiff(:,i), 'type', 'HAC', ...
-                     'Intercept', false, 'bandwidth', H, 'display', 'off');
+        'weights', 'TR', 'Intercept', false, 'bandwidth', H-1, ...
+        'display', 'off');
+    if ~isreal(se(i)) || se(i) <= 0
+        se(i) = NaN;
+    end
+
+    % Null-imposed HAC: alpha(1-alpha) * (1 + 2*sum of autocorrelations)
+    d  = hitsdiff(:,i) - mean(hitsdiff(:,i));
+    g0 = (d' * d) / T_eval;
+    if g0 > 0
+        rho = arrayfun(@(j) d(1+j:end)' * d(1:end-j) / T_eval, 1:H-1) / g0;
+        acf_factor = 1 + 2*sum(rho);
+    else
+        acf_factor = 1;          % no hits: no autocorrelation to estimate
+    end
+    LRV0 = alpha(i) * (1 - alpha(i)) * acf_factor;
+    if LRV0 > 0
+        se0(i) = sqrt(LRV0 / T_eval);
+    end
+
 end
-UC_t_HAC = xbar ./ se;
+UC_t_HAC  = xbar ./ se;
+UC_t_HAC0 = xbar ./ se0;
 
 
 % PIT-based ES test (Du & Escanciano via empirical PITs)
@@ -76,20 +97,41 @@ H_mat  = (1./alpha) .* (alpha - EmpPITs) .* (EmpPITs <= alpha);
 xbar_h = mean(H_mat);
 
 % Version 1 — HAC
-se = NaN(1,q_nr);
+se  = NaN(1,q_nr);
+se0 = NaN(1,q_nr);
 for i = 1:q_nr
     [~, se(i)] = hac(ones(T_eval, 1), H_mat(:,i), 'type', 'HAC', ...
-                     'Intercept', false, 'bandwidth', H, 'display', 'off');
-end
-ES_t_HAC = (xbar_h - E_h) ./ se;
+        'weights', 'TR', 'Intercept', false, 'bandwidth', H-1, ...
+        'display', 'off');
+    if ~isreal(se(i)) || se(i) <= 0
+        se(i) = NaN;
+    end    
 
-% Version 2 — Bernoulli corrected with ACF
-var_bern = NaN(1,q_nr);
-for i = 1:q_nr
-    acf_h = autocorr(H_mat(:,i), 'NumLags', H+1);
-    var_bern(i) = (Var_h(i) / T_eval) * (1 + 2*sum(acf_h(2:H+1)));
+    % Null-imposed HAC: Var_h * (1 + 2*sum of acf, lags 1, ..., H-1)
+    d  = H_mat(:,i) - mean(H_mat(:,i));
+    g0 = (d' * d) / T_eval;
+    if g0 > 0
+        rho = arrayfun(@(j) d(1+j:end)' * d(1:end-j) / T_eval, 1:H-1) / g0;
+        acf_factor = 1 + 2*sum(rho);
+    else
+        acf_factor = 1;      % no tail PITs: no autocorrelation to estimate
+    end
+    LRV0 = Var_h(i) * acf_factor;
+    if LRV0 > 0
+        se0(i) = sqrt(LRV0 / T_eval);
+    end    
 end
-ES_t_bern = (xbar_h - E_h) ./ sqrt(var_bern);
+ES_t_numerator = (xbar_h - E_h);
+ES_t_HAC       = ES_t_numerator ./ se;
+ES_t_HAC0      = ES_t_numerator ./ se0;
+
+% % Version 2 — Bernoulli corrected with ACF
+% var_bern = NaN(1,q_nr);
+% for i = 1:q_nr
+%     acf_h = autocorr(H_mat(:,i), 'NumLags', H+1);
+%     var_bern(i) = (Var_h(i) / T_eval) * (1 + 2*sum(acf_h(2:H+1)));
+% end
+% ES_t_bern = (xbar_h - E_h) ./ sqrt(var_bern);
 
 
 end

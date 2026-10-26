@@ -51,6 +51,7 @@ function FZEvalTable = score_fz(VaRES, R, varargin)
 %                        are excluded. Apply consistently across models
 %                        by determining EvalDates from all models first.
 %                        (default: [])
+%       'Loss'         : 'FZ' for FZ loss; 'QS' for tick loss
 %       'MCSTest'      : Logical, perform MCS test (default: true)
 %       'BlockLength'  : Scalar, fixed block length for MCS bootstrap.
 %                        If empty, data-driven via max significant ACF lag
@@ -109,6 +110,7 @@ addParameter(p, 'DateEnd',      []);
 addParameter(p, 'ExcludeDates', []);
 addParameter(p, 'EvalDates',    []);
 addParameter(p, 'ExcludeQuant', []);
+addParameter(p, 'Loss',         'FZ');   % 'FZ' or 'QS'
 addParameter(p, 'MCSTest',      true)
 addParameter(p, 'BlockLength',  []);
 addParameter(p, 'NBootstrap',   50000);
@@ -125,6 +127,7 @@ DateEnd      = p.Results.DateEnd;
 EvalDates    = p.Results.EvalDates;
 ExcludeDates = p.Results.ExcludeDates;
 ExcludeQuant = p.Results.ExcludeQuant;
+Loss         = p.Results.Loss;
 MCSTest      = p.Results.MCSTest;
 BlockLength  = p.Results.BlockLength;
 NBootstrap   = p.Results.NBootstrap;
@@ -213,15 +216,22 @@ for i = 1:Hlength  % Hlength = 1!
     % Realized cumulative PF returns at horizon h
     ActualCumPFRet = CumActualPFRet(:, h);
 
-    % FZ Loss computed as two parts, i.e., FirstSum + SecondSum
-    VaRNegidx      = ActualCumPFRet <= hStepVaRmat;
-    IndVaRMinusRet = VaRNegidx .* (hStepVaRmat - ActualCumPFRet);
-
-    FirstSum  = - 1/alpha_test * IndVaRMinusRet ./ hStepESmat;
-    SecondSum = hStepVaRmat ./ hStepESmat + log(-hStepESmat) - 1;
-
-    % Overall loss
-    LossMat(:, :, i) = FirstSum + SecondSum;
+    switch Loss
+        case 'FZ'
+            % FZ Loss computed as two parts, i.e., FirstSum + SecondSum
+            VaRNegidx      = ActualCumPFRet <= hStepVaRmat;
+            IndVaRMinusRet = VaRNegidx .* (hStepVaRmat - ActualCumPFRet);
+            FirstSum  = - 1/alpha_test * IndVaRMinusRet ./ hStepESmat;
+            SecondSum = hStepVaRmat ./ hStepESmat + log(-hStepESmat) - 1;
+            LossMat(:, :, i) = FirstSum + SecondSum;
+        case 'QS'
+            % Quantile Score for VaR only
+            hits    = ActualCumPFRet <= hStepVaRmat;
+            LossMat = (hits - alpha_test) .* (hStepVaRmat-ActualCumPFRet);
+        otherwise
+            error(['score_fz: unknown Loss ''%s''. Expected ''FZ'' ' ...
+                   'or ''QS'''], Loss);
+    end
 end
 
 % Determine evaluation sample
@@ -301,11 +311,30 @@ end
 
 % Exclude extreme losses/loss differences
 if ~isempty(ExcludeQuant) && isempty(EvalDates)
-    MaxLossDiff  = max(LossMat, [], 2) - min(LossMat, [], 2);
-    QuantDropInd = (MaxLossDiff > quantile(MaxLossDiff, 1-ExcludeQuant));
-    LossMat      = LossMat(~QuantDropInd,:);
-    dates_eval   = dates_eval(~QuantDropInd);
-    T_eval       = size(LossMat,1);
+    % % Exclude periods with largest loss differentials
+    % MaxLossDiff  = max(LossMat, [], 2) - min(LossMat, [], 2);
+    % QuantDropInd = (MaxLossDiff > quantile(MaxLossDiff, 1-ExcludeQuant));
+    % LossMat      = LossMat(~QuantDropInd,:);
+    % dates_eval   = dates_eval(~QuantDropInd);
+    % T_eval       = size(LossMat,1);
+
+
+    % Exclude days where most models performed exceptionally bad
+    CombNr      = sum(J-1:-1:1);
+    LossAllComb = NaN(T_eval, CombNr);
+    c = 1;
+    for i = 1:J
+        for j = i+1:J
+            LossAllComb(:,c) = abs( LossMat(:,i) - LossMat(:,j) );
+            c                = c + 1;
+        end
+    end
+
+    MedianLossDiff = median(LossAllComb, 2); 
+    QuantDropInd   = MedianLossDiff > quantile(MedianLossDiff, 1-ExcludeQuant);
+    LossMat        = LossMat(~QuantDropInd, :);
+    dates_eval     = dates_eval(~QuantDropInd);
+    T_eval         = size(LossMat, 1);
 
     % figure
     % plot(LossMat_before_cur)

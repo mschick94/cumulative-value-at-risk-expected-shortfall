@@ -91,12 +91,12 @@ mu        = zeros(T, 1);
 % Pre-compute re-estimation dates
 reest_dates = t_start:ReFr:T;
 
-EstMean = true; % Always estimate mean of returns
-% if isempty(TruePars)
-%     EstMean = true;    % estimate mu when estimating parameters
-% else
-%     EstMean = false;   % mu=0 known when using true parameters
-% end
+% EstMean = true; % Always estimate mean of returns
+if isempty(TruePars)
+    EstMean = true;    % estimate mu when estimating parameters
+else
+    EstMean = false;   % mu=0 known when using true parameters
+end
 
 switch dist
     case 'norm'

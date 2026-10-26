@@ -246,22 +246,53 @@ end
 HitRate = mean(hits);
 UC_xbar = (HitRate - alpha_test)';
 UC_se   = NaN(J,1);
+H = HEval;
 for j = 1:J
-    [~, UC_se(j)] = hac(ones(T_eval, 1), hitsdiff(:,j), 'type', 'HAC', ...
-                 'Intercept', false, 'bandwidth', H_max, 'display', 'off');
+    % [~, UC_se(j)] = hac(ones(T_eval, 1), hitsdiff(:,j), 'type', 'HAC', ...
+    %              'Intercept', false, 'bandwidth', H_max, 'display', 'off');
+
+    % Null-imposed HAC: alpha(1-alpha) * (1 + 2*sum of autocorrelations)
+    d  = hitsdiff(:,j) - mean(hitsdiff(:,j));
+    g0 = (d' * d) / T_eval;
+    if g0 > 0
+        rho = arrayfun(@(k) d(1+k:end)' * d(1:end-k) / T_eval, 1:H-1) / g0;
+        acf_factor = 1 + 2*sum(rho);
+    else
+        acf_factor = 1;          % no hits: no autocorrelation to estimate
+    end
+    LRV0 = alpha_test * (1 - alpha_test) * acf_factor;
+    if LRV0 > 0
+        UC_se(j) = sqrt(LRV0 / T_eval);
+    end
 end
 UC_t_HAC = UC_xbar ./ UC_se;
 
 
 % PIT-based ES test (Du & Escanciano via empirical PITs) with HAC
 E_h     = alpha_test / 2;
+Var_h = alpha_test/3 - alpha_test.^2/4;
+
 H_mat   = (1./alpha_test) .* (alpha_test - EmpPITsEval) ...
            .* (EmpPITsEval <= alpha_test);
 ES_xbar = mean(H_mat)';
 ES_se   = NaN(J,1);
 for j = 1:J
-    [~, ES_se(j)] = hac(ones(T_eval, 1), H_mat(:,j), 'type', 'HAC', ...
-                 'Intercept', false, 'bandwidth', H_max, 'display', 'off');
+    % [~, ES_se(j)] = hac(ones(T_eval, 1), H_mat(:,j), 'type', 'HAC', ...
+    %              'Intercept', false, 'bandwidth', H_max, 'display', 'off');
+
+    % Null-imposed HAC: Var_h * (1 + 2*sum of acf, lags 1, ..., H-1)
+    d  = H_mat(:,j) - mean(H_mat(:,j));
+    g0 = (d' * d) / T_eval;
+    if g0 > 0
+        rho = arrayfun(@(k) d(1+k:end)' * d(1:end-k) / T_eval, 1:H-1) / g0;
+        acf_factor = 1 + 2*sum(rho);
+    else
+        acf_factor = 1;      % no tail PITs: no autocorrelation to estimate
+    end
+    LRV0 = Var_h * acf_factor;
+    if LRV0 > 0
+        ES_se(j) = sqrt(LRV0 / T_eval);
+    end        
 end
 ES_t_HAC = (ES_xbar - E_h) ./ ES_se;
 
@@ -272,13 +303,15 @@ if PrintTable
     fprintf('\n%-40s %10s %10s %10s %10s\n', ...
             'Model', 'Hit Rate', 'UC t-stat', 'ES xbar', 'ES t-stat');
     fprintf('%s\n', repmat('-', 1, 85));
+    c = 1;
     for j = Models_id
         fprintf('%-40s %10.4f %10.3f %10.4f %10.3f\n', ...
                 ModelNames{j}, ...
-                UC_xbar(j) + alpha_test, ...
-                UC_t_HAC(j), ...
-                ES_xbar(j), ...
-                ES_t_HAC(j));
+                UC_xbar(c) + alpha_test, ...
+                UC_t_HAC(c), ...
+                ES_xbar(c), ...
+                ES_t_HAC(c));
+        c = c + 1;
     end
     fprintf('%s\n', repmat('-', 1, 85));
 end
@@ -293,13 +326,14 @@ if LaTeX
     n_cols    = 8;   % name & hitrate & UC & ES & \\
     table_str = strings(length(Models_id), n_cols);
 
-    for idx = 1:length(Models_id)
-        j = Models_id(idx);
-        hr_str = sprintf(fmt_str, UC_xbar(j) + alpha_test);
-        uc_str = [sprintf(fmt_str_t, UC_t_HAC(j)) get_stars(UC_t_HAC(j))];
-        es_str = [sprintf(fmt_str_t, ES_t_HAC(j)) get_stars(ES_t_HAC(j))];
-        table_str(idx,:) = {ModelNames{j}, '&', hr_str, '&', uc_str, ...
+    c = 1;
+    for j = Models_id
+        hr_str = sprintf(fmt_str, UC_xbar(c) + alpha_test);
+        uc_str = [sprintf(fmt_str_t, UC_t_HAC(c)) get_stars(UC_t_HAC(c))];
+        es_str = [sprintf(fmt_str_t, ES_t_HAC(c)) get_stars(ES_t_HAC(c))];
+        table_str(c,:) = {ModelNames{j}, '&', hr_str, '&', uc_str, ...
                             '&', es_str, '\\'};
+        c = c + 1;
     end
 
     % T row at bottom

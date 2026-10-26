@@ -47,7 +47,7 @@ merge_files = {
 };
 
 for s = 1:length(merge_files)
-    data = load(sprintf('%s_k=%d', merge_files{s}, K));
+    data = load(sprintf('%s_k=%d_T_w=21', merge_files{s}, K));
     new_names = cellfun(@(x) strrep(strtrim(x), ' ', '_'), ...
                         data.cell_model, 'UniformOutput', false);
     VaRandES.Models = [VaRandES.Models; new_names(:)];

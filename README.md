@@ -17,9 +17,10 @@ project/
 
 ## Main entry point
 
-Run `main_estimation.m` to estimate the copula models (requires local data, see above).
-Run `main_evaluation.m` to reproduce the results.
+Run `main\_garch\_estimation.m` and `main\_heavy\_estimation.m` to estimate the copula models (requires local data, see above).
+Run `main\_evaluation.m` to reproduce the results.
 
 ## Contact
 
 Manuel Schick — [manuel.schick@awi.uni-heidelberg.de](mailto:manuel.schick@awi.uni-heidelberg.de) — [mschick94.github.io](https://mschick94.github.io)
+

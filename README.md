@@ -15,12 +15,11 @@ project/
 └── Output/   (generated results, not public)
 ```
 
-## Main entry point
+## Main entry points
 
-Run `main\_garch\_estimation.m` and `main\_heavy\_estimation.m` to estimate the copula models (requires local data, see above).
-Run `main\_evaluation.m` to reproduce the results.
+1. Run `main_garch_estimation.m` and `main_heavy_estimation.m` to estimate the copula models (requires local data, see above).
+2. Run `main_evaluation.m` to reproduce the results.
 
 ## Contact
 
 Manuel Schick — [manuel.schick@awi.uni-heidelberg.de](mailto:manuel.schick@awi.uni-heidelberg.de) — [mschick94.github.io](https://mschick94.github.io)
-

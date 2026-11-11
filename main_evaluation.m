@@ -65,6 +65,9 @@ VaRandES.ES  = squeeze(VaRandES.ES);
 % Load univariate HEAVY multivariate RiskMetrics and HEAVY-GAS
 VaRandES = merge_mv_models(VaRandES);
 
+% Load copula HEAVY models
+VaRandES = merge_copula_heavy_models(VaRandES);
+
 % % Output for Anne
 % VaRandES.VaR     = VaRandES.VaR(1001:end-9, :, :);
 % VaRandES.ES      = VaRandES.ES(1001:end-9, :, :);
@@ -75,14 +78,15 @@ VaRandES = merge_mv_models(VaRandES);
 % Out-of-sample evaluation
 
 % VaR and ES level
-% alpha = 0.01;
-alpha = 0.025;
+alpha = 0.01;
+%alpha = 0.025;
 
 % MCS significance level
 SigLevel = 0.10;
 
 % Models
-ModelEval = [12, 14, 16, 18, 20, 10, 32, 35, 33, 36, 34, 26, 30, 27, 28, 29]; 
+% ModelEval = [12, 14, 16, 18, 20, 10, 32, 35, 33, 36, 34, 26, 30, 27, 28, 29]; 
+ModelEval = [12, 16, 42, 43, 44, 45];
 
 %%% Tick Loss (Quantile Score)
 
@@ -125,3 +129,147 @@ FZTab = FZ.LaTeX;
 FZTab.Properties.VariableNames = strcat(FZTab.Properties.VariableNames,'_2');
 disp([QS.LaTeX(:,1:3), FZTab(:,2:3), BT.LaTeX(:,2:end)])
 
+
+
+
+
+%% Fissler-Ziegel (FZ) or QS loss and Model Confidence - GARCH and MV-RM 
+
+% Specify loss function
+LossFunction = 'FZ';
+% LossFunction = 'QS';
+
+% Specify models for forecast evaluation
+% ModelEval = [1, 5, 6, 8, 3, 10, 32, 33, 36, 34, 35, 21, 22, 23, 24, 25];   % GARCH
+ModelEval = [12, 16, 17, 19, 14, 10, 32, 33, 36, 34, 35, 26, 27, 28, 29, 30]; % GJR-GARCH
+% ModelEval = []; % All Models
+
+% MCS significance level
+SigLevel = 0.10;
+
+
+% Dates excluded according to maximum loss differentials among all models
+EvalDates_alpha_0010_q_0005 = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, 'ExcludeQuant', 0.005, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'MCSTest', false, ...
+    'Loss', LossFunction);
+
+EvalDates_alpha_0025_q_0005 = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, 'ExcludeQuant', 0.005, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'MCSTest', false, ...
+    'Loss', LossFunction);
+
+EvalDates_alpha_0010_q_0010 = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, 'ExcludeQuant', 0.01, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'MCSTest', false, ...
+    'Loss', LossFunction);
+
+EvalDates_alpha_0025_q_0010 = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, 'ExcludeQuant', 0.01, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'MCSTest', false, ...
+    'Loss', LossFunction);
+
+
+%%% All observations
+% Fissler-Ziegel (FZ) loss and Model Confidence Set of 1% VaR and ES
+Table_0010_all = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, 'PrintTable', false, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'ExcludeDates', [], ...
+    'EvalDates', [], 'Decimals', 3, 'MCSLevel', SigLevel, ...
+    'Loss', LossFunction);
+
+% Fissler-Ziegel (FZ) loss and Model Confidence Set of 2.5% VaR and ES
+Table_0025_all = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, 'PrintTable', false, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'ExcludeDates', [], ...
+    'EvalDates', [], 'Decimals', 3, 'MCSLevel', SigLevel, ...
+    'Loss', LossFunction);
+
+
+%%% Filtering 0.5% most extreme quantile losses
+% Fissler-Ziegel (FZ) loss and Model Confidence Set of 1% VaR and ES
+Table_0010_q0005 = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, 'PrintTable', false, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'ExcludeDates', [], ...
+    'EvalDates', EvalDates_alpha_0010_q_0005.dates_eval, 'Decimals', 3, ...
+    'MCSLevel', SigLevel, 'Loss', LossFunction);
+
+% Fissler-Ziegel (FZ) loss and Model Confidence Set of 2.5% VaR and ES
+Table_0025_q0005 = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, 'PrintTable', false, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'ExcludeDates', [], ...
+    'EvalDates', EvalDates_alpha_0025_q_0005.dates_eval, 'Decimals', 3, ...
+    'MCSLevel', SigLevel, 'Loss', LossFunction);
+
+
+%%% Filtering 1% most extreme quantile losses
+% Fissler-Ziegel (FZ) loss and Model Confidence Set of 1% VaR and ES
+Table_0010_q0010 = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, 'PrintTable', false, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'ExcludeDates', [], ...
+    'EvalDates', EvalDates_alpha_0010_q_0010.dates_eval, 'Decimals', 3, ...
+    'MCSLevel', SigLevel, 'Loss', LossFunction);
+
+% Fissler-Ziegel (FZ) loss and Model Confidence Set of 2.5% VaR and ES
+Table_0025_q0010 = score_fz(VaRandES, R, 'HEval', 10, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, 'PrintTable', false, ...
+    'DateStart', 20060201, 'DateEnd', 20231130, 'ExcludeDates', [], ...
+    'EvalDates', EvalDates_alpha_0025_q_0010.dates_eval, 'Decimals', 3, ...
+    'MCSLevel', SigLevel, 'Loss', LossFunction);
+
+
+% Construct combined output for LaTeX (ready for copy and paste)
+Tab2 = Table_0025_all.LaTeX;
+Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
+Tab3 = Table_0010_q0005.LaTeX;
+Tab3.Properties.VariableNames = strcat(Tab3.Properties.VariableNames,'_3');
+Tab4 = Table_0025_q0005.LaTeX;
+Tab4.Properties.VariableNames = strcat(Tab4.Properties.VariableNames,'_4');
+Tab5 = Table_0010_q0010.LaTeX;
+Tab5.Properties.VariableNames = strcat(Tab3.Properties.VariableNames,'_5');
+Tab6 = Table_0025_q0010.LaTeX;
+Tab6.Properties.VariableNames = strcat(Tab4.Properties.VariableNames,'_6');
+disp([Table_0010_all.LaTeX(:,1:end-1) Tab2(:,2:end-1) ...
+      Tab3(:,2:end-1) Tab4(:,2:end-1) Tab5(:,2:end-1) Tab6(:,2:end)])
+
+
+
+%% UC and ES backtest
+
+%%% All observations
+BacktestTable_0010_all = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval);
+
+BacktestTable_0025_all = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval);
+
+%%% Filtering 0.5% most extreme quantile losses
+BacktestTable_0010_q_0005 = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, ...
+    'EvalDates', EvalDates_alpha_0010_q_0005.dates_eval);
+
+BacktestTable_0025_q_0005 = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, ...
+    'EvalDates', EvalDates_alpha_0025_q_0005.dates_eval);
+
+%%% Filtering 1% most extreme quantile losses
+BacktestTable_0010_q_0010 = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.01, 'Models_id', ModelEval, ...
+    'EvalDates', EvalDates_alpha_0010_q_0010.dates_eval);
+
+BacktestTable_0025_q_0010 = VaRESBacktest(VaRandES, R, ...
+    'alpha_level', 0.025, 'Models_id', ModelEval, ...
+    'EvalDates', EvalDates_alpha_0025_q_0010.dates_eval);
+
+% Construct combined output for LaTeX (ready for copy and paste)
+Tab2 = BacktestTable_0025_all.LaTeX;
+Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
+% disp([BacktestTable_0010_all.LaTeX(:,1:end-1) Tab2(:,2:end)])
+
+Tab2 = BacktestTable_0025_q_0005.LaTeX;
+Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
+% disp([BacktestTable_0010_q_0005.LaTeX(:,1:end-1) Tab2(:,2:end)])
+
+Tab2 = BacktestTable_0025_q_0010.LaTeX;
+Tab2.Properties.VariableNames = strcat(Tab2.Properties.VariableNames,'_2');
+% disp([BacktestTable_0010_q_0010.LaTeX(:,1:end-1) Tab2(:,2:end)])

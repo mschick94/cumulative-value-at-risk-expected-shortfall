@@ -61,7 +61,7 @@ for s = 1:length(merge_files)
     ES_new(t_start:t_end,  :, 2) = data.ES_mat_h_step_MV_GARCH_975;
     u_ES_new(t_start:t_end, :)   = data.u_ES_mat_h_step_MV_GARCH;
     VaRandES.VaR     = cat(2, VaRandES.VaR,     VaR_new);
-    VaRandES.ES      = cat(2, VaRandES.ES,       ES_new);
+    VaRandES.ES      = cat(2, VaRandES.ES,      ES_new);
     VaRandES.EmpPITs = cat(2, VaRandES.EmpPITs, u_ES_new);
 end
 

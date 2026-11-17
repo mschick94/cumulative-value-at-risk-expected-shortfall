@@ -19,7 +19,7 @@ ReturnData = readtable('CTC_RET.xlsx','VariableNamingRule','preserve');
 RVData     = load('Start_data_10_30_50_2002_2023.mat');
 
 % K = 10, 30, or 50
-K = 10;
+K = 30;
 
 % Specify assets (manually or by position in ReturnData) and extract data
 % assets = {'AXP', 'BA'}; % Manually selecting assets by name

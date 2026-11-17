@@ -40,9 +40,11 @@ function BackTestTable = VaRESBacktest(VaRES, R, varargin)
 %                        via intersect with dates_eval. Intended for
 %                        consistent evaluation across functions using dates
 %                        from score_fz with ExcludeQuant (default: [])
+%       'OneSided'     : Logical, One-sided UC and ES test (default: true)
 %       'Decimals'     : Scalar, decimal places in output (default: 3)
 %       'LaTeX'        : Logical, produce LaTeX table body (default: true)
-%       'PrintTable'   : Logical, display results in output window (default: true)
+%       'PrintTable'   : Logical, display results in output window 
+%                        (default: true)
 %
 %   OUTPUT:
 %       BackTestTable : Struct containing:
@@ -63,6 +65,8 @@ function BackTestTable = VaRESBacktest(VaRES, R, varargin)
 %
 %   NOTES:
 %       - HAC bandwidth set to H for all tests
+%       - One-sided significance stars: ** t>1.282, *** t>1.645,
+%         *** |t|>1.960
 %       - Two-sided significance stars: * |t|>1.645, ** |t|>1.960,
 %         *** |t|>2.576
 %       - EvalDates workflow: obtain from score_fz with ExcludeQuant and
@@ -88,6 +92,7 @@ addParameter(p, 'DateStart',    []);
 addParameter(p, 'DateEnd',      []);
 addParameter(p, 'ExcludeDates', []);
 addParameter(p, 'EvalDates',    []);
+addParameter(p, 'OneSided',     true);
 addParameter(p, 'Decimals',     3);
 addParameter(p, 'LaTeX',        true);
 addParameter(p, 'PrintTable',   true);
@@ -100,6 +105,7 @@ DateStart    = p.Results.DateStart;
 DateEnd      = p.Results.DateEnd;
 EvalDates    = p.Results.EvalDates;
 ExcludeDates = p.Results.ExcludeDates;
+OneSided     = p.Results.OneSided;
 Decimals     = p.Results.Decimals;
 LaTeX        = p.Results.LaTeX;
 PrintTable   = p.Results.PrintTable;
@@ -321,8 +327,15 @@ end
 if LaTeX
     fmt_str   = sprintf('%%.%df', Decimals);
     fmt_str_t = sprintf('%%.%df', Decimals-1);
-    get_stars = @(t) repmat('*', 1, (abs(t) > 1.645) + (abs(t) > 1.960) ...
-                             + (abs(t) > 2.576));
+    if OneSided
+        % One-sided alternative
+        get_stars = @(t) repmat('*', 1, (t > 1.282) ...
+                                + (t > 1.645) + (t > 1.960));
+    else
+        % Two-sided alternative
+        get_stars = @(t) repmat('*', 1, (abs(t) > 1.645) ...
+                                + (abs(t) > 1.960) + (abs(t) > 2.576));
+    end
     n_cols    = 8;   % name & hitrate & UC & ES & \\
     table_str = strings(length(Models_id), n_cols);
 
